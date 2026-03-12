@@ -1,0 +1,15 @@
+import './bootstrap';
+import '../css/app.css';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './react/App';
+
+const container = document.getElementById('app');
+
+if (container) {
+    createRoot(container).render(
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
+    );
+}

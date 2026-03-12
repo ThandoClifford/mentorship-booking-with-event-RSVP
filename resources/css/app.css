@@ -1,0 +1,217 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+:root {
+    --ump-primary-navy: #1F2A44;
+    --ump-deep-blue: #0B3A66;
+    --ump-accent-gold: #F2A900;
+    --ump-accent-gold-hover: #D99500;
+    --ump-white: #FFFFFF;
+    --ump-page-gray: #F5F7FA;
+    --ump-text-dark: #111827;
+    --ump-text-muted: #6B7280;
+    --ump-border: #D1D5DB;
+    --ump-destructive: #B91C1C;
+    --ump-destructive-hover: #991B1B;
+}
+
+body {
+    background: var(--ump-page-gray);
+    color: var(--ump-text-dark);
+}
+
+.ump-top-header {
+    background: var(--ump-white);
+    border-bottom: 1px solid var(--ump-border);
+}
+
+.ump-utility-link {
+    color: var(--ump-deep-blue);
+    font-weight: 500;
+}
+
+.ump-utility-link:hover {
+    text-decoration: underline;
+}
+
+.ump-main-nav {
+    background: var(--ump-primary-navy);
+    color: var(--ump-white);
+}
+
+.ump-nav-link {
+    color: var(--ump-white);
+    transition: background-color 0.2s ease;
+}
+
+.ump-nav-link:hover,
+.ump-nav-link:focus-visible {
+    background: color-mix(in srgb, var(--ump-primary-navy), white 10%);
+}
+
+.ump-nav-link-active {
+    background: var(--ump-accent-gold);
+    color: var(--ump-text-dark);
+    font-weight: 600;
+}
+
+.ump-dropdown-panel {
+    background: var(--ump-deep-blue);
+    border: 1px solid color-mix(in srgb, var(--ump-deep-blue), white 20%);
+}
+
+.ump-dropdown-link {
+    color: var(--ump-white);
+}
+
+.ump-dropdown-link:hover,
+.ump-dropdown-link:focus-visible {
+    background: color-mix(in srgb, var(--ump-deep-blue), white 12%);
+}
+
+.ump-dropdown-link-active {
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.ump-card,
+.ump-sidebar {
+    background: var(--ump-white);
+    border: 1px solid var(--ump-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06), 0 4px 12px rgba(17, 24, 39, 0.06);
+}
+
+.ump-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    padding: 0.625rem 1rem;
+    border: 1px solid transparent;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.ump-btn:focus-visible,
+.ump-focusable:focus-visible {
+    outline: 2px solid var(--ump-accent-gold);
+    outline-offset: 2px;
+}
+
+.ump-btn-primary {
+    background: var(--ump-accent-gold);
+    color: var(--ump-text-dark);
+}
+
+.ump-btn-primary:hover {
+    background: var(--ump-accent-gold-hover);
+}
+
+.ump-btn-secondary {
+    background: var(--ump-deep-blue);
+    color: var(--ump-white);
+}
+
+.ump-btn-secondary:hover {
+    background: color-mix(in srgb, var(--ump-deep-blue), black 12%);
+}
+
+.ump-btn-destructive {
+    background: var(--ump-destructive);
+    color: var(--ump-white);
+}
+
+.ump-btn-destructive:hover {
+    background: var(--ump-destructive-hover);
+}
+
+.ump-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--ump-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.ump-table th {
+    background: var(--ump-primary-navy);
+    color: var(--ump-white);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem 1rem;
+}
+
+.ump-table td {
+    background: var(--ump-white);
+    border-top: 1px solid var(--ump-border);
+    color: var(--ump-text-dark);
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+}
+
+.ump-muted {
+    color: var(--ump-text-muted);
+}
+
+.ump-partner-marquee {
+    overflow: hidden;
+    min-width: 0;
+}
+
+.ump-partner-marquee-track {
+    display: flex;
+    width: max-content;
+    align-items: center;
+    animation: umpPartnerScroll 32s linear infinite;
+}
+
+.ump-partner-marquee-set {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    padding-right: 3rem;
+}
+
+.ump-partner-marquee-item {
+    flex: 0 0 auto;
+}
+
+@keyframes umpPartnerScroll {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ump-partner-marquee-track {
+        animation: none;
+    }
+}
+
+.ump-scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.ump-scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+}

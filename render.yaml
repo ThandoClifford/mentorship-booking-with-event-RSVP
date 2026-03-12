@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: ump-mentorship-portal
+    env: docker
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: https://ump-mentorship-portal.onrender.com
+      - key: ASSET_URL
+        value: https://ump-mentorship-portal.onrender.com
+      - key: APP_TIMEZONE
+        value: Africa/Johannesburg
+      - key: APP_KEY
+        sync: false
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: DB_DATABASE
+        value: /tmp/database.sqlite
+      - key: SESSION_DRIVER
+        value: file
+      - key: CACHE_STORE
+        value: file
+      - key: BACKUP_DISKS
+        value: local
+      - key: BACKUP_SLACK_WEBHOOK_URL
+        value: ""
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: info

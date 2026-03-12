@@ -1,0 +1,77 @@
+[
+  {
+    "question": "How do I register?",
+    "keywords": ["register", "sign up", "create account"],
+    "answer": "Use Create an account on the login page, then complete your details. Mentor accounts must be verified by admin before appearing to mentees."
+  },
+  {
+    "question": "How does mentor verification work?",
+    "keywords": ["verify", "verification", "mentor approval"],
+    "answer": "Admin verifies mentor accounts in the Admin Portal. Unverified mentors do not appear on the mentee side."
+  },
+  {
+    "question": "How do I book an appointment?",
+    "keywords": ["book", "slot", "appointment", "session"],
+    "answer": "Open the Mentee Portal, select a mentor, choose a time slot from the dropdown, add a subject, and submit the booking request."
+  },
+  {
+    "question": "What if I forgot my password?",
+    "keywords": ["password", "forgot", "reset", "login"],
+    "answer": "Click Forgot password on the login page and follow the reset link process."
+  },
+  {
+    "question": "What is UMPCFERI?",
+    "keywords": ["umpcferi", "centre", "incubator", "entrepreneurship"],
+    "answer": "UMPCFERI is a centre that supports student entrepreneurship through mentorship, coaching, and business development support."
+  },
+  {
+    "question": "Does the centre provide funding?",
+    "keywords": ["funding", "finance", "money"],
+    "answer": "The centre supports funding readiness, proposal writing, and guidance on opportunities. Funding itself is not guaranteed."
+  },
+  {
+    "question": "What are your support contacts?",
+    "keywords": ["support", "contact", "email", "help", "office hours"],
+    "answer": "Contact support at umpcferi-support@ump.ac.za during office hours Mon-Fri, 08:00-16:30."
+  },
+  {
+    "question": "Is UMPCFERI a society?",
+    "keywords": ["society", "club", "organization"],
+    "answer": "No. UMPCFERI is a technology business incubator that supports students, alumni, and SMMEs through enterprise development services."
+  },
+  {
+    "question": "What services does the centre offer?",
+    "keywords": ["services", "offer", "training", "workshops", "coaching"],
+    "answer": "Services include entrepreneurship training, networking workshops, idea development, business planning, financial literacy, marketing guidance, and incubation coaching."
+  },
+  {
+    "question": "Can mentees see unverified mentors?",
+    "keywords": ["unverified", "not verified", "mentor visible", "mentee side"],
+    "answer": "No. Only admin-verified mentors appear on the mentee side."
+  },
+  {
+    "question": "Why is my mentor account pending?",
+    "keywords": ["pending", "mentor pending", "approval pending"],
+    "answer": "Mentor accounts stay pending until an admin verifies them. After verification, mentor portal access and mentee visibility are enabled."
+  },
+  {
+    "question": "Can I cancel or reschedule appointments?",
+    "keywords": ["cancel", "reschedule", "change appointment"],
+    "answer": "Mentors and admins can manage appointment status. If you need changes, contact your mentor or support for assistance."
+  },
+  {
+    "question": "How do I contact admin support quickly?",
+    "keywords": ["admin support", "contact admin", "urgent help"],
+    "answer": "Use umpcferi-support@ump.ac.za and include your role, issue, and screenshot for faster support."
+  },
+  {
+    "question": "Do I need a profile photo as mentor?",
+    "keywords": ["profile photo", "mentor photo", "signup photo"],
+    "answer": "Yes. Mentor signup requires a profile photo so mentees can identify mentors on the platform."
+  },
+  {
+    "question": "How many days ahead are slots shown?",
+    "keywords": ["days ahead", "slot window", "next days"],
+    "answer": "Available slots are generated and shown for the next few days based on configured mentor availability windows."
+  }
+]
