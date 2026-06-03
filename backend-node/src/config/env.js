@@ -17,5 +17,9 @@ export const env = {
   mailUser: process.env.MAIL_USER || '',
   mailPass: process.env.MAIL_PASS || '',
   mailFromAddress: process.env.MAIL_FROM_ADDRESS || '',
-  mailFromName: process.env.MAIL_FROM_NAME || 'UMPCFERI Portal'
+  mailFromName: process.env.MAIL_FROM_NAME || 'The Mentorship Academy',
+  adminNotifyEmails: String(process.env.ADMIN_NOTIFY_EMAILS || '')
+    .split(',')
+    .map((email) => String(email || '').trim())
+    .filter(Boolean)
 };

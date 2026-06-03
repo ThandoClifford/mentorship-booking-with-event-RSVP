@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
@@ -14,10 +15,17 @@ import { SessionNote } from '../models/SessionNote.js';
 import { TimeSlot } from '../models/TimeSlot.js';
 import { User } from '../models/User.js';
 import {
+  getLastMailError,
+  getMailConfigIssues,
   sendAppointmentCancelledEmails,
   sendAppointmentCompletedEmail,
   sendAppointmentConfirmedEmails,
-  sendMentorVerifiedEmail
+  sendAdminTestEmail,
+  sendMentorJoinRequestEmails,
+  sendMentorSignupConfirmationEmail,
+  sendMenteeSignupConfirmationEmail,
+  sendMentorVerifiedEmail,
+  sendPasswordResetEmail
 } from '../services/mail.js';
 import { writeAudit } from '../utils/audit.js';
 import { signToken } from '../utils/auth.js';
@@ -31,14 +39,20 @@ function isObjectId(value) {
 
 function dayName(dateStr) {
   const day = new Date(`${dateStr}T00:00:00`).getDay();
-  if (day === 2) return 'tuesday';
-  if (day === 4) return 'thursday';
-  return 'other';
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  return days[day];
 }
 
 function mapUser(user) {
   if (!user) return null;
-  return { id: String(user._id), name: user.name, email: user.email, role: user.role };
+  return {
+    id: String(user._id),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    faculty: user.faculty || null,
+    mentor_verified_at: user.mentor_verified_at || null,
+  };
 }
 
 function mapSlot(slot) {
@@ -80,10 +94,15 @@ async function loadAppointmentWithRelations(id) {
 }
 
 router.post('/auth/register', async (req, res) => {
-  const { name, email, password, password_confirmation, role } = req.body || {};
+  const { name, email, password, password_confirmation, role, faculty } = req.body || {};
+  const normalizedRole = ['student', 'mentor', 'admin', 'super_admin'].includes(role) ? role : 'student';
+  const normalizedFaculty = String(faculty || '').trim();
 
   if (!name || !email || !password || password !== password_confirmation) {
     return failure(res, 'Validation failed', null, 422);
+  }
+  if (normalizedRole === 'mentor' && !normalizedFaculty) {
+    return failure(res, 'Validation failed', { faculty: ['The faculty field is required for mentor registration.'] }, 422);
   }
 
   const exists = await User.findOne({ email: String(email).toLowerCase() });
@@ -96,8 +115,19 @@ router.post('/auth/register', async (req, res) => {
     name: String(name),
     email: String(email).toLowerCase(),
     password: passwordHash,
-    role: ['student', 'mentor', 'admin', 'super_admin'].includes(role) ? role : 'student'
+    role: normalizedRole,
+    faculty: normalizedRole === 'mentor' ? normalizedFaculty : null
   });
+
+  if (user.role === 'mentor') {
+    await sendMentorJoinRequestEmails(user);
+    await sendMentorSignupConfirmationEmail(user);
+  } else if (user.role === 'student') {
+    const mentee = await User.findById(user._id).select('name email role');
+    if (mentee) {
+      await sendMenteeSignupConfirmationEmail(mentee);
+    }
+  }
 
   const token = signToken(user);
   return success(res, 'Registered successfully', { user: mapUser(user), token }, 201);
@@ -139,9 +169,10 @@ router.post('/auth/password/forgot', async (req, res) => {
   let issuedToken = null;
   if (user) {
     await PasswordResetToken.updateMany({ email, used_at: null }, { $set: { used_at: new Date() } });
-    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await PasswordResetToken.create({ email, token, expires_at: expiresAt, used_at: null });
+    await sendPasswordResetEmail({ email, name: user.name, token });
     issuedToken = token;
   }
 
@@ -205,6 +236,13 @@ router.get('/public/home', async (_req, res) => {
   });
 });
 
+router.get('/public/mentors', async (_req, res) => {
+  const mentors = await User.find({ role: 'mentor', mentor_verified_at: { $ne: null } })
+    .select('name email role faculty')
+    .sort({ name: 1 });
+  return success(res, 'Mentors retrieved', mentors.map(mapUser));
+});
+
 router.get('/metrics', authRequired, requireRole('admin', 'super_admin'), async (_req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const appointments = await Appointment.find().populate('time_slot_id');
@@ -223,6 +261,86 @@ router.get('/admin/mentors', authRequired, requireRole('admin', 'super_admin'), 
   const mentors = await User.find({ role: 'mentor' }).sort({ createdAt: -1 });
   return success(res, 'Mentors retrieved', mentors.map(mapUser));
 });
+
+
+router.get('/admin/students', authRequired, requireRole('admin', 'super_admin'), async (req, res) => {
+  const search = String(req.query.search || '').trim();
+  const status = String(req.query.status || 'all').trim().toLowerCase();
+
+  const query = { role: 'student' };
+
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  const students = await User.find(query).sort({ createdAt: -1 });
+
+  const studentIds = students.map((student) => student._id);
+
+  const appointments = await Appointment.find({
+    student_id: { $in: studentIds }
+  }).populate('time_slot_id');
+
+  const appointmentMap = new Map();
+
+  for (const appointment of appointments) {
+    const studentId = String(appointment.student_id);
+    const current = appointmentMap.get(studentId) || {
+      total_appointments: 0,
+      upcoming_appointments: 0,
+      completed_appointments: 0,
+      cancelled_appointments: 0,
+      last_appointment_date: null,
+    };
+
+    current.total_appointments += 1;
+
+    if (appointment.status === 'completed') current.completed_appointments += 1;
+    if (appointment.status === 'cancelled') current.cancelled_appointments += 1;
+
+    const slotDate = appointment.time_slot_id?.date || null;
+    if (slotDate) {
+      if (!current.last_appointment_date || slotDate > current.last_appointment_date) {
+        current.last_appointment_date = slotDate;
+      }
+      if (slotDate >= new Date().toISOString().slice(0, 10) && ['pending', 'confirmed'].includes(appointment.status)) {
+        current.upcoming_appointments += 1;
+      }
+    }
+
+    appointmentMap.set(studentId, current);
+  }
+
+  let data = students.map((student) => {
+    const stats = appointmentMap.get(String(student._id)) || {
+      total_appointments: 0,
+      upcoming_appointments: 0,
+      completed_appointments: 0,
+      cancelled_appointments: 0,
+      last_appointment_date: null,
+    };
+
+    return {
+      ...mapUser(student),
+      created_at: student.createdAt,
+      updated_at: student.updatedAt,
+      status: 'active',
+      ...stats,
+    };
+  });
+
+  if (status !== 'all') {
+    data = data.filter((student) => student.status === status);
+  }
+
+  return success(res, 'Students retrieved', data);
+});
+
+
+
 
 router.get('/admin/mentors/pending-verification', authRequired, requireRole('admin', 'super_admin'), async (_req, res) => {
   const pending = await User.find({ role: 'mentor', mentor_verified_at: null }).sort({ createdAt: 1 });
@@ -642,8 +760,14 @@ router.get('/admin/ops/alerts', authRequired, requireRole('admin', 'super_admin'
     });
   }
 
-  if (!process.env.MAIL_FROM_ADDRESS) {
-    alerts.push({ severity: 'warning', code: 'MAIL_FROM_ADDRESS_MISSING', message: 'MAIL_FROM_ADDRESS is not set.', details: null });
+  const mailIssues = getMailConfigIssues();
+  for (const issue of mailIssues) {
+    alerts.push({
+      severity: issue === 'MAIL_DISABLED' ? 'info' : 'warning',
+      code: issue,
+      message: `Mail configuration issue: ${issue}`,
+      details: null
+    });
   }
 
   return success(res, 'OK', {
@@ -654,6 +778,30 @@ router.get('/admin/ops/alerts', authRequired, requireRole('admin', 'super_admin'
     alert_count: alerts.length,
     alerts
   });
+});
+
+router.post('/admin/ops/test-email', authRequired, requireRole('admin', 'super_admin'), async (req, res) => {
+  const requestedEmail = String(req.body?.email || '').trim();
+  const targetEmail = requestedEmail || req.user.email;
+  if (!targetEmail) {
+    return failure(res, 'A recipient email is required', null, 422);
+  }
+
+  const mailIssues = getMailConfigIssues();
+  if (mailIssues.length > 0) {
+    return failure(res, 'Test email failed. Mail configuration is incomplete.', {
+      issues: mailIssues
+    }, 422);
+  }
+
+  const sent = await sendAdminTestEmail({ email: targetEmail, name: req.user.name });
+  if (!sent) {
+    return failure(res, 'Test email failed. Check SMTP configuration and logs.', {
+      reason: getLastMailError() || null
+    }, 503);
+  }
+
+  return success(res, 'Test email sent', { to: targetEmail });
 });
 
 router.get('/student/slots', authRequired, requireRole('student'), async (req, res) => {
@@ -671,8 +819,6 @@ router.get('/student/slots', authRequired, requireRole('student'), async (req, r
     const end = to || new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
     slots = slots.filter((slot) => slot.date >= start && slot.date <= end);
   }
-
-  slots = slots.filter((slot) => ['tuesday', 'thursday'].includes(dayName(slot.date)));
 
   return success(res, 'Available slots retrieved', slots.sort((a, b) => `${a.date} ${a.start_time}`.localeCompare(`${b.date} ${b.start_time}`)).map(mapSlot));
 });
