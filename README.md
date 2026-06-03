@@ -1,10 +1,12 @@
-## UMP Mentorship Portal Stack
+## The Mentorship Academy Platform (TMA)
 
-This project now runs as:
+Mentorship Academy Platform — a modern mentorship marketplace built with:
 
 - Frontend: React SPA (Vite)
 - Backend: Node.js + Express API (`backend-node`, `/api/v1/*`)
 - Database: MongoDB (Mongoose)
+
+Public routes include `/`, `/mentors`, `/mentors/:id`, `/about`, `/programs`, and `/contact`.
 
 ### Frontend Route Behavior
 

@@ -235,7 +235,7 @@ function StudentChatWidget() {
             {chatOpen ? (
                 <div className="fixed bottom-5 right-5 z-50 w-[92vw] max-h-[85vh] max-w-sm overflow-hidden rounded-xl border border-[var(--ump-border)] bg-white shadow-lg">
                     <div className="flex items-center justify-between rounded-t-xl bg-[var(--ump-primary-navy)] px-4 py-3 text-white">
-                        <p className="text-sm font-semibold">UMPCFERI Assistant</p>
+                        <p className="text-sm font-semibold">TMA Assistant</p>
                         <button type="button" className="ump-focusable rounded px-2 py-1 text-xs text-white/90 hover:bg-white/10" onClick={() => setChatOpen(false)}>Close</button>
                     </div>
                     <div className="ump-scrollbar-hidden max-h-64 space-y-2 overflow-y-auto p-3 text-sm">
