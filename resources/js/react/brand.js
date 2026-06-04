@@ -7,20 +7,21 @@ export const BRAND = {
 };
 
 export const EXPERTISE_OPTIONS = [
-    'Leadership',
+    'Business Development',
     'Entrepreneurship',
     'Career Guidance',
+    'Leadership',
     'Marketing',
+    'Personal Development',
     'Technology',
     'Finance',
-    'Personal Development',
-    'Business Development',
+    'Education',
+    'Women\'s Empowerment',
 ];
 
 export const AVAILABILITY_FILTERS = [
     'Available Today',
     'Available This Week',
-    'Online',
     'In Person',
 ];
 
