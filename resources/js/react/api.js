@@ -162,6 +162,11 @@ export async function getAdminAlerts() {
     return unwrap(response);
 }
 
+export async function sendAdminTestEmail(email = '') {
+    const response = await client.post('/admin/ops/test-email', email ? { email } : {});
+    return unwrap(response);
+}
+
 export async function getAdminAppointments() {
     const response = await client.get('/admin/appointments');
     return unwrap(response) || [];
@@ -210,6 +215,11 @@ export async function deleteAdminCentreEvent(id) {
 export async function getHomeData() {
     const response = await client.get('/public/home');
     return unwrap(response) || { announcements: [], centreEvents: [] };
+}
+
+export async function getPublicMentors() {
+    const response = await client.get('/public/mentors');
+    return unwrap(response) || [];
 }
 
 export async function getMentorAvailability() {
