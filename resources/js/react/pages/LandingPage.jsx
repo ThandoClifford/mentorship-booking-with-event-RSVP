@@ -3,36 +3,7 @@ import { getHomeData, getPublicMentors } from '../api';
 import PublicNavbar from '../components/PublicNavbar';
 import SiteFooter from '../components/SiteFooter';
 import MentorCard from '../components/MentorCard';
-
-const fallbackMentors = [
-    {
-        id: 'mentor-1',
-        name: 'Thuli Madonsela',
-        title: 'Leadership & Governance Mentor',
-        faculty: 'Leadership & Governance',
-        expertise: 'Leadership & Governance',
-        bio: 'Guides future leaders through strategic thinking, governance, and public impact work.',
-        profile_photo_path: '/images/ump-logo.png',
-    },
-    {
-        id: 'mentor-2',
-        name: 'Norah Fakude',
-        title: 'Finance & Investment Mentor',
-        faculty: 'Finance & Investment',
-        expertise: 'Finance & Investment',
-        bio: 'Supports learners in financial planning, enterprise growth, and investment discipline.',
-        profile_photo_path: '/images/ump-logo.png',
-    },
-    {
-        id: 'mentor-3',
-        name: 'Fatima Joyce Parker',
-        title: 'Entrepreneurship Mentor',
-        faculty: 'Entrepreneurship & Business',
-        expertise: 'Entrepreneurship & Business',
-        bio: 'Helps aspiring founders shape business opportunities, innovation, and enterprise readiness.',
-        profile_photo_path: '/images/ump-logo.png',
-    },
-];
+import MentorProfileModal from '../components/MentorProfileModal';
 
 const fallbackEvents = [
     {
@@ -65,8 +36,16 @@ const fallbackEvents = [
 ];
 
 export default function LandingPage({ user }) {
-    const [mentors, setMentors] = useState(fallbackMentors);
+    const [dbMentors, setDbMentors] = useState([]);
+    const [mentorsLoading, setMentorsLoading] = useState(true);
+    const [mentorsError, setMentorsError] = useState('');
     const [events, setEvents] = useState(fallbackEvents);
+    const [selectedMentor, setSelectedMentor] = useState(null);
+
+    const mentors = Array.isArray(dbMentors) ? dbMentors : [];
+
+    const openMentorProfile = (mentor) => setSelectedMentor(mentor || null);
+    const closeMentorProfile = () => setSelectedMentor(null);
 
     useEffect(() => {
         let active = true;
@@ -80,8 +59,8 @@ export default function LandingPage({ user }) {
 
                 if (!active) return;
 
-                if (Array.isArray(mentorData) && mentorData.length > 0) {
-                    setMentors(mentorData);
+                if (Array.isArray(mentorData)) {
+                    setDbMentors(mentorData);
                 }
 
                 if (homeData && Array.isArray(homeData.centreEvents)) {
@@ -97,10 +76,14 @@ export default function LandingPage({ user }) {
 
                     if (centreEvents.length > 0) setEvents(centreEvents);
                 }
-            } catch {
+            } catch (err) {
                 if (active) {
-                    setMentors(fallbackMentors);
-                    setEvents(fallbackEvents);
+                    setMentorsError(err?.response?.data?.message || 'Mentors are temporarily unavailable. Please try again shortly.');
+                    setDbMentors([]);
+                }
+            } finally {
+                if (active) {
+                    setMentorsLoading(false);
                 }
             }
         })();
@@ -182,8 +165,17 @@ export default function LandingPage({ user }) {
                         <a className="ump-link-button" href="/mentors">View all</a>
                     </div>
                     <div className="ump-mentor-grid">
-                        {mentors.slice(0, 3).map((mentor) => (
-                            <MentorCard key={mentor.id || mentor.email || mentor.name} mentor={mentor} onBook={() => window.location.assign(`/mentors/${mentor.id || ''}`)} />
+                        {mentorsLoading && (
+                            <div className="ump-mentor-empty">Loading mentors...</div>
+                        )}
+                        {mentorsError && !mentorsLoading && (
+                            <div className="ump-mentor-empty">{mentorsError}</div>
+                        )}
+                        {!mentorsLoading && !mentorsError && mentors.length === 0 && (
+                            <div className="ump-mentor-empty">No mentors are currently available.</div>
+                        )}
+                        {!mentorsLoading && !mentorsError && mentors.map((mentor) => (
+                            <MentorCard key={mentor.id || mentor.email || mentor.name} mentor={mentor} onBook={() => window.location.assign(`/mentors/${mentor.id || ''}`)} onViewProfile={openMentorProfile} />
                         ))}
                     </div>
                 </section>
@@ -304,6 +296,7 @@ export default function LandingPage({ user }) {
                 </section>
             </main>
             <SiteFooter />
+            {selectedMentor && <MentorProfileModal mentor={selectedMentor} onClose={closeMentorProfile} />}
         </div>
     );
 }

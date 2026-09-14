@@ -1,8 +1,7 @@
 import React from 'react';
 
-export default function MentorCard({ mentor, onBook }) {
+export default function MentorCard({ mentor, onBook, onViewProfile }) {
     const displayFaculty = mentor.faculty || mentor.expertise || mentor.title || 'Career & Innovation Mentor';
-    const profileHref = mentor.id ? `/mentors/${mentor.id}` : '/mentors';
     const avatarUrl = mentor.profile_photo_path || mentor.photo || '/images/ump-logo.png';
 
     return (
@@ -18,8 +17,10 @@ export default function MentorCard({ mentor, onBook }) {
             <div className="ump-mentor-card-body">
                 <p className="ump-mentor-description">{mentor.bio || mentor.summary || 'Public mentorship guidance and professional development support.'}</p>
                 <div className="ump-mentor-card-actions">
-                    <a href={profileHref} className="ump-card-button outline">View Profile</a>
-                    <button className="ump-card-button primary" onClick={onBook || (() => window.location.assign(profileHref))}>
+                    <button type="button" onClick={() => onViewProfile?.(mentor)} className="ump-card-button outline">
+                        View Profile
+                    </button>
+                    <button className="ump-card-button primary" onClick={onBook || (() => window.location.assign(`/mentors/${mentor.id || ''}`))}>
                         Book Appointment
                     </button>
                 </div>

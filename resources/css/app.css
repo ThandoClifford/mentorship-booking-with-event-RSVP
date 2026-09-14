@@ -429,8 +429,14 @@ body {
 .ump-card-button.outline,
 .ump-link-button {
     background: transparent;
-    color: var(--ump-white);
+    color: var(--ump-primary-navy);
     border: 1px solid var(--ump-accent-gold);
+}
+
+.ump-cta-button.secondary:hover,
+.ump-card-button.outline:hover,
+.ump-link-button:hover {
+    color: var(--ump-primary-navy);
 }
 
 .ump-cta-button.light {
@@ -676,6 +682,14 @@ body {
     margin-top: 20px;
     align-items: center;
     flex-wrap: wrap;
+}
+
+.ump-mentor-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--tma-muted);
+    font-size: 1rem;
+    padding: 18px;
 }
 
 .ump-event-card {
