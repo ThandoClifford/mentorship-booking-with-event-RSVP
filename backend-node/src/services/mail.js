@@ -178,13 +178,41 @@ export async function sendAdminTestEmail({ email, name }) {
   });
 }
 
+function resolvePublicStudentEmail(appointment) {
+  return String(appointment?.public_student?.email || appointment?.student?.email || '').trim();
+}
+
+function resolvePublicStudentName(appointment) {
+  return appointment?.public_student?.full_name || appointment?.student?.name || 'Student';
+}
+
+export async function sendPublicAppointmentRequestedEmail(appointment) {
+  const when = appointmentLine(appointment);
+  const studentName = resolvePublicStudentName(appointment);
+  const mentorName = appointment?.mentor?.name || 'Mentor';
+  const mentorEmail = appointment?.mentor?.email || '';
+  const studentNumber = appointment?.public_student?.student_number || 'N/A';
+  const studentEmail = resolvePublicStudentEmail(appointment);
+  const subject = 'New mentorship appointment request';
+  const text = `Hello ${mentorName},\n\nA new public mentorship appointment request has been submitted.\n\nStudent: ${studentName}\nStudent number: ${studentNumber}\nStudent email: ${studentEmail}\nDate/time: ${when}\nReason: ${appointment?.appointment_subject || 'Not provided'}\n\nRegards,\nThe Mentorship Academy`;
+  const html = `<p>Hello ${mentorName},</p><p>A new public mentorship appointment request has been submitted.</p><ul><li><strong>Student:</strong> ${studentName}</li><li><strong>Student number:</strong> ${studentNumber}</li><li><strong>Student email:</strong> ${studentEmail}</li><li><strong>Date/time:</strong> ${when}</li><li><strong>Reason:</strong> ${appointment?.appointment_subject || 'Not provided'}</li></ul><p>Regards,<br/>The Mentorship Academy</p>`;
+
+  return sendEmail({
+    to: mentorEmail,
+    subject,
+    text,
+    html
+  });
+}
+
 export async function sendAppointmentConfirmedEmails(appointment) {
   const when = appointmentLine(appointment);
-  const studentName = appointment?.student?.name || 'Student';
+  const studentName = resolvePublicStudentName(appointment);
   const mentorName = appointment?.mentor?.name || 'Mentor';
+  const recipient = resolvePublicStudentEmail(appointment);
 
   const studentSent = await sendEmail({
-    to: appointment?.student?.email,
+    to: recipient,
     subject: 'Your appointment is confirmed',
     text: `Hello ${studentName},\n\nYour appointment with ${mentorName} is confirmed for ${when}.\n\nRegards,\nThe Mentorship Academy`,
     html: `<p>Hello ${studentName},</p><p>Your appointment with <strong>${mentorName}</strong> is confirmed for <strong>${when}</strong>.</p><p>Regards,<br/>The Mentorship Academy</p>`
@@ -202,12 +230,13 @@ export async function sendAppointmentConfirmedEmails(appointment) {
 
 export async function sendAppointmentCancelledEmails(appointment, reason = '') {
   const when = appointmentLine(appointment);
-  const studentName = appointment?.student?.name || 'Student';
+  const studentName = resolvePublicStudentName(appointment);
   const mentorName = appointment?.mentor?.name || 'Mentor';
+  const recipient = resolvePublicStudentEmail(appointment);
   const reasonLine = reason ? `\nReason: ${reason}` : '';
 
   const studentSent = await sendEmail({
-    to: appointment?.student?.email,
+    to: recipient,
     subject: 'Your appointment was cancelled',
     text: `Hello ${studentName},\n\nYour appointment with ${mentorName} scheduled for ${when} was cancelled.${reasonLine}\n\nRegards,\nThe Mentorship Academy`,
     html: `<p>Hello ${studentName},</p><p>Your appointment with <strong>${mentorName}</strong> scheduled for <strong>${when}</strong> was cancelled.</p>${reason ? `<p>Reason: ${reason}</p>` : ''}<p>Regards,<br/>The Mentorship Academy</p>`

@@ -77,7 +77,7 @@ export default function MentorsPage({ user }) {
                         <p className="rounded-2xl border border-[var(--tma-border)] bg-white p-8 text-center text-sm text-[var(--tma-muted)]">No mentors match your search yet.</p>
                     ) : null}
                     {filteredMentors.map((mentor) => (
-                        <MentorCard key={mentor.id || mentor.email} mentor={mentor} user={user} onBook={() => navigate(user ? `/student?mentor=${mentor.id}` : `/login?redirect=${encodeURIComponent(`/student?mentor=${mentor.id}`)}`)} />
+                        <MentorCard key={mentor.id || mentor.email} mentor={mentor} user={user} onBook={() => navigate(`/mentors/${mentor.id || ''}`)} />
                     ))}
                 </section>
             </div>

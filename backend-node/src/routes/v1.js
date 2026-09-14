@@ -25,7 +25,8 @@ import {
   sendMentorSignupConfirmationEmail,
   sendMenteeSignupConfirmationEmail,
   sendMentorVerifiedEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendPublicAppointmentRequestedEmail
 } from '../services/mail.js';
 import { writeAudit } from '../utils/audit.js';
 import { signToken } from '../utils/auth.js';
@@ -55,6 +56,19 @@ function mapUser(user) {
   };
 }
 
+function publicMentorMap(user) {
+  if (!user) return null;
+  return {
+    id: String(user._id),
+    name: user.name,
+    role: user.role,
+    faculty: user.faculty || null,
+    email: user.email,
+    profile_photo_path: user.profile_photo_path || null,
+    mentor_verified_at: user.mentor_verified_at || null,
+  };
+}
+
 function mapSlot(slot) {
   return {
     id: String(slot._id),
@@ -68,9 +82,19 @@ function mapSlot(slot) {
 }
 
 function mapAppointment(appointment) {
+  const studentAccount = appointment.student_id && appointment.student_id.name ? mapUser(appointment.student_id) : null;
+  const publicStudent = appointment.public_student ? {
+    name: appointment.public_student.full_name || null,
+    student_number: appointment.public_student.student_number || null,
+    email: appointment.public_student.email || null,
+    faculty: appointment.public_student.faculty || null,
+    phone: appointment.public_student.phone || null,
+    type: 'public'
+  } : null;
+
   return {
     id: String(appointment._id),
-    student_id: String(appointment.student_id?._id || appointment.student_id),
+    student_id: appointment.student_id ? String(appointment.student_id?._id || appointment.student_id) : null,
     mentor_id: String(appointment.mentor_id?._id || appointment.mentor_id),
     time_slot_id: String(appointment.time_slot_id?._id || appointment.time_slot_id),
     status: appointment.status,
@@ -80,10 +104,36 @@ function mapAppointment(appointment) {
     confirmed_sent_at: appointment.confirmed_sent_at || null,
     cancelled_sent_at: appointment.cancelled_sent_at || null,
     reminder_sent_at: appointment.reminder_sent_at || null,
-    student: appointment.student_id && appointment.student_id.name ? mapUser(appointment.student_id) : undefined,
+    public_student: appointment.public_student || null,
+    student: studentAccount ? { ...studentAccount, type: 'account' } : publicStudent || undefined,
     mentor: appointment.mentor_id && appointment.mentor_id.name ? mapUser(appointment.mentor_id) : undefined,
     time_slot: appointment.time_slot_id && appointment.time_slot_id.date ? mapSlot(appointment.time_slot_id) : undefined
   };
+}
+
+function parseSlotStartInSouthAfrica(slot) {
+  const date = String(slot?.date || '').trim();
+  const time = String(slot?.start_time || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const timeParts = String(time).split(':').map(Number);
+  if (timeParts.length < 2 || timeParts[0] < 0 || timeParts[0] > 23 || timeParts[1] < 0 || timeParts[1] > 59) return null;
+
+  const hour = String(timeParts[0]).padStart(2, '0');
+  const minute = String(timeParts[1]).padStart(2, '0');
+  const second = String(timeParts[2] || 0).padStart(2, '0');
+
+  const iso = `${date}T${hour}:${minute}:${second}+02:00`;
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime())) return null;
+
+  return start;
+}
+
+function slotStartIsInFuture(slot) {
+  const start = parseSlotStartInSouthAfrica(slot);
+  if (!start) return false;
+  return start.getTime() > Date.now();
 }
 
 async function loadAppointmentWithRelations(id) {
@@ -238,9 +288,156 @@ router.get('/public/home', async (_req, res) => {
 
 router.get('/public/mentors', async (_req, res) => {
   const mentors = await User.find({ role: 'mentor', mentor_verified_at: { $ne: null } })
-    .select('name email role faculty')
+    .select('name email role faculty profile_photo_path mentor_verified_at')
     .sort({ name: 1 });
   return success(res, 'Mentors retrieved', mentors.map(mapUser));
+});
+
+router.get('/public/mentors/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!isObjectId(id)) {
+    return failure(res, 'Invalid mentor id', null, 400);
+  }
+
+  const mentor = await User.findOne({ _id: id, role: 'mentor' });
+  if (!mentor) {
+    return failure(res, 'Mentor not found', null, 404);
+  }
+
+  if (!mentor.mentor_verified_at) {
+    return failure(res, 'Mentor not found', null, 404);
+  }
+
+  return success(res, 'Mentor retrieved', publicMentorMap(mentor));
+});
+
+router.get('/public/mentors/:id/slots', async (req, res) => {
+  const { id } = req.params;
+  if (!isObjectId(id)) {
+    return failure(res, 'Invalid mentor id', null, 400);
+  }
+
+  const mentor = await User.findOne({ _id: id, role: 'mentor', mentor_verified_at: { $ne: null } });
+  if (!mentor) {
+    return failure(res, 'Mentor not found', null, 404);
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const slots = await TimeSlot.find({
+    mentor_id: mentor._id,
+    status: 'available',
+    date: { $gte: today }
+  }).sort({ date: 1, start_time: 1 }).select('id _id date start_time end_time status mentor_id');
+
+  return success(res, 'Available slots retrieved', slots.map((slot) => ({
+    id: String(slot._id),
+    date: slot.date,
+    start_time: slot.start_time,
+    end_time: slot.end_time
+  })));
+});
+
+router.post('/public/appointments', async (req, res) => {
+  const raw = req.body || {};
+  const mentor_id = String(raw.mentor_id || '').trim();
+  const slot_id = String(raw.slot_id || '').trim();
+  const full_name = String(raw.full_name || '').trim();
+  const student_number = String(raw.student_number || '').trim();
+  const email = String(raw.email || '').trim().toLowerCase();
+  const faculty = String(raw.faculty || '').trim();
+  const phone = String(raw.phone || '').trim();
+  const reason = String(raw.reason || '').trim();
+
+  if (!isObjectId(mentor_id)) return failure(res, 'Validation failed', null, 422);
+  if (!isObjectId(slot_id)) return failure(res, 'Validation failed', null, 422);
+  if (!full_name) return failure(res, 'Validation failed', null, 422);
+  if (!student_number || student_number.length < 3) return failure(res, 'Validation failed', null, 422);
+  if (!reason) return failure(res, 'Validation failed', null, 422);
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return failure(res, 'Validation failed', null, 422);
+  }
+
+  const configuredDomain = String(process.env.UMP_STUDENT_EMAIL_DOMAIN || '').trim().toLowerCase();
+  if (!configuredDomain) {
+    console.error('Public booking blocked: UMP_STUDENT_EMAIL_DOMAIN configuration is missing.');
+    await writeAudit(req, null, 'public_appointment.email_domain_missing', 'Appointment', null, {
+      mentor_id,
+      slot_id,
+      student_number,
+      email
+    });
+    return failure(res, 'Student email verification is temporarily unavailable. Please try again later.', null, 503);
+  }
+
+  const domain = String(email.split('@')[1] || '').trim().toLowerCase();
+  if (!domain || domain !== configuredDomain) {
+    return failure(res, 'Validation failed', null, 422);
+  }
+
+  const mentor = await User.findOne({ _id: mentor_id, role: 'mentor', mentor_verified_at: { $ne: null } });
+  if (!mentor) return failure(res, 'Invalid mentor', null, 422);
+
+  const slot = await TimeSlot.findById(slot_id);
+  if (!slot || String(slot.mentor_id) !== mentor_id || slot.status !== 'available') {
+    return failure(res, 'This appointment time is no longer available. Please select another time.', null, 409);
+  }
+
+  if (!slotStartIsInFuture(slot)) {
+    return failure(res, 'This appointment time is no longer available. Please select another time.', null, 409);
+  }
+
+  const duplicate = await Appointment.findOne({
+    mentor_id,
+    time_slot_id: slot_id,
+    'public_student.student_number': student_number,
+    status: { $in: ['pending', 'confirmed'] }
+  });
+  if (duplicate) return failure(res, 'This appointment request already exists.', null, 409);
+
+  const claimed = await TimeSlot.findOneAndUpdate(
+    { _id: slot_id, mentor_id: mentor_id, status: 'available' },
+    { $set: { status: 'booked' } },
+    { new: true }
+  );
+
+  if (!claimed) {
+    return failure(res, 'This appointment time is no longer available. Please select another time.', null, 409);
+  }
+
+  let appointment;
+  try {
+    appointment = await Appointment.create({
+      student_id: null,
+      mentor_id: mentor._id,
+      time_slot_id: claimed._id,
+      status: 'pending',
+      appointment_subject: reason,
+      public_student: {
+        full_name,
+        student_number,
+        email,
+        faculty,
+        phone
+      },
+      student_contact_details: `${full_name} / ${email} / ${phone || 'N/A'}`
+    });
+  } catch (error) {
+    await TimeSlot.findOneAndUpdate({ _id: slot_id, mentor_id: mentor_id, status: 'booked' }, { $set: { status: 'available' } }, { new: true });
+    await writeAudit(req, null, 'public_appointment.creation_failed', 'Appointment', null, { mentor_id, slot_id, error: error?.message || String(error) });
+    return failure(res, 'Unable to create appointment request', null, 500);
+  }
+
+  await sendPublicAppointmentRequestedEmail({
+    mentor,
+    public_student: { full_name, student_number, email, faculty, phone },
+    appointment_subject: reason,
+    time_slot: claimed,
+    student: null
+  });
+
+  return success(res, 'Appointment request submitted successfully', mapAppointment(await loadAppointmentWithRelations(appointment._id)), 201);
 });
 
 router.get('/metrics', authRequired, requireRole('admin', 'super_admin'), async (_req, res) => {

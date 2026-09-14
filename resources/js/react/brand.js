@@ -1,9 +1,9 @@
 export const BRAND = {
-    name: 'The Mentorship Academy',
-    shortName: 'TMA',
-    platformName: 'Mentorship Academy Platform',
-    logo: '/images/tma-logo.png',
-    supportEmail: 'support@thementorshipacademy.com',
+    name: 'UMP-CFERI',
+    shortName: 'UMP-CFERI',
+    platformName: 'UMP-CFERI Digital Engagement Platform',
+    logo: '/images/ump-logo.png',
+    supportEmail: 'mentorship@ump.ac.za',
 };
 
 export const EXPERTISE_OPTIONS = [

@@ -182,6 +182,11 @@ export async function approveAdminAppointment(id) {
     return unwrap(response);
 }
 
+export async function declineAdminAppointment(id, cancelledReason = 'Declined by admin') {
+    const response = await client.post(`/admin/appointments/${id}/decline`, { cancelled_reason: cancelledReason });
+    return unwrap(response);
+}
+
 export async function getAdminAnnouncements() {
     const response = await client.get('/admin/announcements');
     return unwrap(response) || [];
@@ -215,6 +220,21 @@ export async function deleteAdminCentreEvent(id) {
 export async function getHomeData() {
     const response = await client.get('/public/home');
     return unwrap(response) || { announcements: [], centreEvents: [] };
+}
+
+export async function getPublicMentor(id) {
+    const response = await client.get(`/public/mentors/${id}`);
+    return unwrap(response) || null;
+}
+
+export async function getPublicMentorSlots(id) {
+    const response = await client.get(`/public/mentors/${id}/slots`);
+    return unwrap(response) || [];
+}
+
+export async function createPublicAppointment(payload) {
+    const response = await client.post('/public/appointments', payload);
+    return unwrap(response);
 }
 
 export async function getPublicMentors() {
