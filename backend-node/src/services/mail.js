@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
+import { buildConfirmedICS } from './calendar.js';
 
 let transporterPromise;
 let lastMailError = '';
@@ -186,16 +187,36 @@ function resolvePublicStudentName(appointment) {
   return appointment?.public_student?.full_name || appointment?.student?.name || 'Student';
 }
 
-export async function sendPublicAppointmentRequestedEmail(appointment) {
+export async function sendPublicAppointmentRequestedEmail(appointment, acceptUrl, declineUrl) {
   const when = appointmentLine(appointment);
   const studentName = resolvePublicStudentName(appointment);
   const mentorName = appointment?.mentor?.name || 'Mentor';
   const mentorEmail = appointment?.mentor?.email || '';
   const studentNumber = appointment?.public_student?.student_number || 'N/A';
   const studentEmail = resolvePublicStudentEmail(appointment);
+  const reason = appointment?.appointment_subject || 'Not provided';
   const subject = 'New mentorship appointment request';
-  const text = `Hello ${mentorName},\n\nA new public mentorship appointment request has been submitted.\n\nStudent: ${studentName}\nStudent number: ${studentNumber}\nStudent email: ${studentEmail}\nDate/time: ${when}\nReason: ${appointment?.appointment_subject || 'Not provided'}\n\nRegards,\nThe Mentorship Academy`;
-  const html = `<p>Hello ${mentorName},</p><p>A new public mentorship appointment request has been submitted.</p><ul><li><strong>Student:</strong> ${studentName}</li><li><strong>Student number:</strong> ${studentNumber}</li><li><strong>Student email:</strong> ${studentEmail}</li><li><strong>Date/time:</strong> ${when}</li><li><strong>Reason:</strong> ${appointment?.appointment_subject || 'Not provided'}</li></ul><p>Regards,<br/>The Mentorship Academy</p>`;
+
+  const acceptLink = acceptUrl ? `\nAccept: ${acceptUrl}` : '';
+  const declineLink = declineUrl ? `\nDecline: ${declineUrl}` : '';
+
+  const text = `Hello ${mentorName},\n\nA new public mentorship appointment request has been submitted.\n\nStudent: ${studentName}\nStudent number: ${studentNumber}\nStudent email: ${studentEmail}\nDate/time: ${when}\nReason: ${reason}\n${acceptLink}${declineLink}\n\nRegards,\nThe Mentorship Academy`;
+
+  const html = `<p>Hello ${mentorName},</p>
+<p>A new public mentorship appointment request has been submitted.</p>
+<ul>
+  <li><strong>Student:</strong> ${studentName}</li>
+  <li><strong>Student number:</strong> ${studentNumber}</li>
+  <li><strong>Student email:</strong> ${studentEmail}</li>
+  <li><strong>Date/time:</strong> ${when}</li>
+  <li><strong>Reason:</strong> ${reason}</li>
+</ul>
+<p>Please review this request:</p>
+<ul>
+  ${acceptUrl ? `<li><a href="${acceptUrl}">Accept appointment</a></li>` : ''}
+  ${declineUrl ? `<li><a href="${declineUrl}">Decline appointment</a></li>` : ''}
+</ul>
+<p>Regards,<br/>The Mentorship Academy</p>`;
 
   return sendEmail({
     to: mentorEmail,
@@ -203,6 +224,85 @@ export async function sendPublicAppointmentRequestedEmail(appointment) {
     text,
     html
   });
+}
+
+export async function sendPublicAppointmentRequestReceivedEmail(appointment) {
+  const when = appointmentLine(appointment);
+  const studentName = resolvePublicStudentName(appointment);
+  const mentorName = appointment?.mentor?.name || 'Mentor';
+  const studentEmail = resolvePublicStudentEmail(appointment);
+
+  const subject = 'Your mentorship appointment request has been received';
+  const text = `Hello ${studentName},\n\nWe have received your mentorship appointment request with ${mentorName} for ${when}.\n\nPlease note that this request is not confirmed yet. The mentor will review your request and you will receive another email once it has been accepted or declined.\n\nRegards,\nThe Mentorship Academy`;
+
+  const html = `<p>Hello ${studentName},</p>
+<p>We have received your mentorship appointment request with <strong>${mentorName}</strong> for <strong>${when}</strong>.</p>
+<p>Please note that this request is <strong>not confirmed yet</strong>. The mentor will review your request and you will receive another email once it has been accepted or declined.</p>
+<p>Regards,<br/>The Mentorship Academy</p>`;
+
+  return sendEmail({
+    to: studentEmail,
+    subject,
+    text,
+    html
+  });
+}
+
+export async function sendConfirmedCalendarInvitation(appointment) {
+  const ics = buildConfirmedICS(appointment);
+  if (!ics) return false;
+
+  const when = appointmentLine(appointment);
+  const studentName = resolvePublicStudentName(appointment);
+  const mentorName = appointment?.mentor?.name || 'Mentor';
+  const studentEmail = resolvePublicStudentEmail(appointment);
+  const mentorEmail = appointment?.mentor?.email || '';
+
+  const subject = `Your UMP-CFERI mentorship session is confirmed – ${mentorName}`;
+
+  const studentText = `Hello ${studentName},\n\nYour appointment with ${mentorName} scheduled for ${when} has been confirmed.\n\nPlease find the calendar invitation attached to this email.\n\nRegards,\nThe Mentorship Academy`;
+
+  const studentHtml = `<p>Hello ${studentName},</p>
+<p>Your appointment with <strong>${mentorName}</strong> scheduled for <strong>${when}</strong> has been confirmed.</p>
+<p>Please find the calendar invitation attached to this email.</p>
+<p>Regards,<br/>The Mentorship Academy</p>`;
+
+  const mentorText = `Hello ${mentorName},\n\nThe appointment with ${studentName} scheduled for ${when} has been confirmed.\n\nPlease find the calendar invitation attached to this email.\n\nRegards,\nThe Mentorship Academy`;
+
+  const mentorHtml = `<p>Hello ${mentorName},</p>
+<p>The appointment with <strong>${studentName}</strong> scheduled for <strong>${when}</strong> has been confirmed.</p>
+<p>Please find the calendar invitation attached to this email.</p>
+<p>Regards,<br/>The Mentorship Academy</p>`;
+
+  const attachments = [
+    {
+      filename: `appointment-${appointment.id}.ics`,
+      content: ics,
+      contentType: 'text/calendar; charset=utf-8; method=PUBLISH'
+    }
+  ];
+
+  const studentSent = studentEmail
+    ? await sendEmail({
+        to: studentEmail,
+        subject,
+        text: studentText,
+        html: studentHtml,
+        attachments
+      })
+    : false;
+
+  const mentorSent = mentorEmail
+    ? await sendEmail({
+        to: mentorEmail,
+        subject,
+        text: mentorText,
+        html: mentorHtml,
+        attachments
+      })
+    : false;
+
+  return studentSent || mentorSent;
 }
 
 export async function sendAppointmentConfirmedEmails(appointment) {

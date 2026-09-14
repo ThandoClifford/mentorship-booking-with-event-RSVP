@@ -21,6 +21,7 @@ import MentorProfilePage from './pages/MentorProfilePage';
 import AboutPage from './pages/AboutPage';
 import ProgramsPage from './pages/ProgramsPage';
 import ContactPage from './pages/ContactPage';
+import AppointmentActionPage from './pages/AppointmentActionPage';
 
 const FACULTY_OPTIONS = [
     'Faculty of Agriculture and Natural Sciences',
@@ -77,6 +78,7 @@ function AppRoutes({ user, setUser }) {
             <Route path="/mentors/:id" element={<MentorProfilePage user={user} />} />
             <Route path="/programs" element={<ProgramsPage user={user} />} />
             <Route path="/contact" element={<ContactPage user={user} />} />
+            <Route path="/appointment-action" element={<AppointmentActionPage />} />
             <Route path="/login" element={user ? <Navigate to={roleHomePath(roleValue(user))} replace /> : <LoginPage onAuthenticated={setUser} />} />
             <Route path="/admin/login" element={user ? <Navigate to={roleHomePath(roleValue(user))} replace /> : <LoginPage onAuthenticated={setUser} forcedRole="admin" />} />
             <Route path="/register" element={user ? <Navigate to={roleHomePath(roleValue(user))} replace /> : <RegisterPage onAuthenticated={setUser} />} />

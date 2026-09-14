@@ -4,8 +4,10 @@ import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { authRequired } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
+import { env } from '../config/env.js';
 import { Announcement } from '../models/Announcement.js';
 import { Appointment } from '../models/Appointment.js';
+import { AppointmentActionToken } from '../models/AppointmentActionToken.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { CentreEvent } from '../models/CentreEvent.js';
 import { GroupSession } from '../models/GroupSession.js';
@@ -26,7 +28,9 @@ import {
   sendMenteeSignupConfirmationEmail,
   sendMentorVerifiedEmail,
   sendPasswordResetEmail,
-  sendPublicAppointmentRequestedEmail
+  sendPublicAppointmentRequestReceivedEmail,
+  sendPublicAppointmentRequestedEmail,
+  sendConfirmedCalendarInvitation
 } from '../services/mail.js';
 import { writeAudit } from '../utils/audit.js';
 import { signToken } from '../utils/auth.js';
@@ -109,6 +113,12 @@ function mapAppointment(appointment) {
     mentor: appointment.mentor_id && appointment.mentor_id.name ? mapUser(appointment.mentor_id) : undefined,
     time_slot: appointment.time_slot_id && appointment.time_slot_id.date ? mapSlot(appointment.time_slot_id) : undefined
   };
+}
+
+function createActionToken(appointmentId, action) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  return { appointmentId, action, token, expiresAt };
 }
 
 function parseSlotStartInSouthAfrica(slot) {
@@ -429,15 +439,120 @@ router.post('/public/appointments', async (req, res) => {
     return failure(res, 'Unable to create appointment request', null, 500);
   }
 
-  await sendPublicAppointmentRequestedEmail({
-    mentor,
-    public_student: { full_name, student_number, email, faculty, phone },
-    appointment_subject: reason,
-    time_slot: claimed,
-    student: null
-  });
+  const baseUrl = String(env.appUrl || 'http://localhost:5174').replace(/\/$/, '');
+  const acceptToken = createActionToken(appointment._id, 'accept');
+  const declineToken = createActionToken(appointment._id, 'decline');
+
+  await AppointmentActionToken.create([
+    { appointment_id: appointment._id, action: 'accept', token: acceptToken.token, expires_at: acceptToken.expiresAt },
+    { appointment_id: appointment._id, action: 'decline', token: declineToken.token, expires_at: declineToken.expiresAt }
+  ]);
+
+  const acceptUrl = `${baseUrl}/appointment-action?token=${acceptToken.token}`;
+  const declineUrl = `${baseUrl}/appointment-action?token=${declineToken.token}`;
+
+  await Promise.all([
+    sendPublicAppointmentRequestedEmail(
+      {
+        mentor,
+        public_student: { full_name, student_number, email, faculty, phone },
+        appointment_subject: reason,
+        time_slot: claimed,
+        student: null
+      },
+      acceptUrl,
+      declineUrl
+    ),
+    sendPublicAppointmentRequestReceivedEmail(
+      {
+        mentor,
+        public_student: { full_name, student_number, email, faculty, phone },
+        appointment_subject: reason,
+        time_slot: claimed,
+        student: null
+      }
+    )
+  ]);
 
   return success(res, 'Appointment request submitted successfully', mapAppointment(await loadAppointmentWithRelations(appointment._id)), 201);
+});
+
+router.get('/public/appointment-actions/:token', async (req, res) => {
+  const { token } = req.params;
+  if (!token) {
+    return failure(res, 'Invalid action link', null, 400);
+  }
+
+  const actionToken = await AppointmentActionToken.findOne({ token });
+  if (!actionToken) {
+    return failure(res, 'This action link is invalid or has already been used.', null, 404);
+  }
+
+  if (new Date(actionToken.expires_at).getTime() < Date.now()) {
+    return failure(res, 'This action link has expired. Please contact the mentor to resend the request.', null, 410);
+  }
+
+  if (actionToken.used_at) {
+    return failure(res, 'This action has already been processed.', null, 410);
+  }
+
+  const appointment = await loadAppointmentWithRelations(actionToken.appointment_id);
+  if (!appointment) {
+    return failure(res, 'Appointment not found.', null, 404);
+  }
+
+  if (appointment.status !== 'pending') {
+    return failure(res, 'This appointment is no longer pending and cannot be updated from this link.', null, 409);
+  }
+
+  const isAccept = actionToken.action === 'accept';
+  const isDecline = actionToken.action === 'decline';
+
+  if (!isAccept && !isDecline) {
+    return failure(res, 'Invalid action.', null, 400);
+  }
+
+  actionToken.used_at = new Date();
+  await actionToken.save();
+
+  if (isAccept) {
+    appointment.status = 'confirmed';
+    appointment.confirmed_sent_at = appointment.confirmed_sent_at || null;
+    await appointment.save();
+
+    const full = await loadAppointmentWithRelations(appointment._id);
+    await sendConfirmedCalendarInvitation(mapAppointment(full));
+
+    if (!appointment.confirmed_sent_at) {
+      appointment.confirmed_sent_at = new Date();
+      await appointment.save();
+    }
+
+    await writeAudit(req, null, 'public_appointment.accepted', 'Appointment', appointment._id);
+    return success(res, 'Appointment confirmed successfully');
+  }
+
+  appointment.status = 'cancelled';
+  appointment.cancelled_reason = 'Declined by mentor';
+  appointment.cancelled_sent_at = appointment.cancelled_sent_at || null;
+  await appointment.save();
+
+  const slot = await TimeSlot.findById(appointment.time_slot_id);
+  if (slot && slot.status === 'booked') {
+    slot.status = 'available';
+    await slot.save();
+  }
+
+  const full = await loadAppointmentWithRelations(appointment._id);
+  await sendAppointmentCancelledEmails(mapAppointment(full), appointment.cancelled_reason || '');
+
+  if (!appointment.cancelled_sent_at) {
+    appointment.cancelled_sent_at = new Date();
+    await appointment.save();
+  }
+
+  await writeAudit(req, null, 'public_appointment.declined', 'Appointment', appointment._id);
+  return success(res, 'Appointment declined successfully');
 });
 
 router.get('/metrics', authRequired, requireRole('admin', 'super_admin'), async (_req, res) => {
