@@ -4,48 +4,24 @@ import PublicNavbar from '../components/PublicNavbar';
 import SiteFooter from '../components/SiteFooter';
 import MentorCard from '../components/MentorCard';
 import MentorProfileModal from '../components/MentorProfileModal';
-
-const fallbackEvents = [
-    {
-        id: 'event-1',
-        title: 'UMP-CFERI Innovation Showcase',
-        description: 'A public showcase of student-led innovation, enterprise, and food security ideas.',
-        event_date: '2026-09-15',
-        event_time: '10:00',
-        venue: 'UMP Innovation Hub',
-        image: '/images/panel-discussion.jpg',
-    },
-    {
-        id: 'event-2',
-        title: 'Entrepreneurship and Career Clinic',
-        description: 'A guided mentorship clinic focused on career clarity, enterprise thinking, and next-step planning.',
-        event_date: '2026-09-22',
-        event_time: '14:00',
-        venue: 'UMP Main Hall',
-        image: '/images/panel-discussion-about.jpg',
-    },
-    {
-        id: 'event-3',
-        title: 'Food Security Roundtable',
-        description: 'A dialogue on food systems, youth entrepreneurship, and community solutions for inclusive growth.',
-        event_date: '2026-10-05',
-        event_time: '09:30',
-        venue: 'UMP-CFERI Forum Room',
-        image: '/images/logo-bg.jpg',
-    },
-];
+import EventRSVPModal from '../components/EventRSVPModal';
 
 export default function LandingPage({ user }) {
     const [dbMentors, setDbMentors] = useState([]);
     const [mentorsLoading, setMentorsLoading] = useState(true);
     const [mentorsError, setMentorsError] = useState('');
-    const [events, setEvents] = useState(fallbackEvents);
+    const [events, setEvents] = useState([]);
+    const [eventsLoading, setEventsLoading] = useState(true);
+    const [eventsError, setEventsError] = useState('');
     const [selectedMentor, setSelectedMentor] = useState(null);
+    const [selectedEvent, setSelectedEvent] = useState(null);
 
     const mentors = Array.isArray(dbMentors) ? dbMentors : [];
 
     const openMentorProfile = (mentor) => setSelectedMentor(mentor || null);
     const closeMentorProfile = () => setSelectedMentor(null);
+    const openEventRsvp = (event) => setSelectedEvent(event || null);
+    const closeEventRsvp = () => setSelectedEvent(null);
 
     useEffect(() => {
         let active = true;
@@ -64,26 +40,37 @@ export default function LandingPage({ user }) {
                 }
 
                 if (homeData && Array.isArray(homeData.centreEvents)) {
-                    const centreEvents = homeData.centreEvents.map((event) => ({
+                    const mappedEvents = homeData.centreEvents.map((event) => ({
                         id: event.id,
                         title: event.title,
                         description: event.description || event.summary || event.category || 'Public UMP-CFERI engagement event.',
                         event_date: event.event_date,
                         event_time: event.event_time,
+                        end_time: event.end_time || null,
                         venue: event.venue,
+                        category: event.category,
                         image: event.image || event.image_url || '/images/panel-discussion.jpg',
                     }));
 
-                    if (centreEvents.length > 0) setEvents(centreEvents);
+                    if (mappedEvents.length > 0) {
+                        setEvents(mappedEvents);
+                    } else {
+                        setEvents([]);
+                    }
+                } else {
+                    setEvents([]);
                 }
             } catch (err) {
                 if (active) {
                     setMentorsError(err?.response?.data?.message || 'Mentors are temporarily unavailable. Please try again shortly.');
                     setDbMentors([]);
+                    setEventsError('Events are temporarily unavailable. Please try again shortly.');
+                    setEvents([]);
                 }
             } finally {
                 if (active) {
                     setMentorsLoading(false);
+                    setEventsLoading(false);
                 }
             }
         })();
@@ -189,7 +176,16 @@ export default function LandingPage({ user }) {
                         <a className="ump-link-button" href="#events">All Events</a>
                     </div>
                     <div className="ump-event-grid">
-                        {events.slice(0, 3).map((event) => (
+                        {eventsLoading && (
+                            <div className="ump-mentor-empty">Loading events...</div>
+                        )}
+                        {eventsError && !eventsLoading && (
+                            <div className="ump-mentor-empty">{eventsError}</div>
+                        )}
+                        {!eventsLoading && !eventsError && events.length === 0 && (
+                            <div className="ump-mentor-empty">No upcoming events at the moment.</div>
+                        )}
+                        {!eventsLoading && !eventsError && events.map((event) => (
                             <article className="ump-event-card" key={event.id || event.title}>
                                 <div className="ump-event-image">
                                     <img src={event.image || '/images/panel-discussion.jpg'} alt={event.title} />
@@ -199,12 +195,12 @@ export default function LandingPage({ user }) {
                                     <h3>{event.title}</h3>
                                     <p>{event.description}</p>
                                     <div className="ump-event-meta">
-                                        <span>{event.event_time || 'Time TBD'}</span>
+                                        <span>{event.event_time ? String(event.event_time).slice(0, 5) : 'Time TBD'}</span>
                                         <span>{event.venue || 'UMP Campus'}</span>
                                     </div>
                                     <div className="ump-event-actions">
-                                        <a className="ump-card-button outline" href="#">View Event</a>
-                                        <button className="ump-card-button primary" onClick={() => window.location.assign('#events')}>RSVP</button>
+                                        <button className="ump-card-button outline" onClick={() => window.location.assign('#')}>View Event</button>
+                                        <button className="ump-card-button primary" onClick={() => openEventRsvp(event)}>RSVP</button>
                                     </div>
                                 </div>
                             </article>
@@ -297,6 +293,7 @@ export default function LandingPage({ user }) {
             </main>
             <SiteFooter />
             {selectedMentor && <MentorProfileModal mentor={selectedMentor} onClose={closeMentorProfile} />}
+            {selectedEvent && <EventRSVPModal event={selectedEvent} onClose={closeEventRsvp} />}
         </div>
     );
 }

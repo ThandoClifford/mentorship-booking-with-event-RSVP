@@ -217,6 +217,21 @@ export async function deleteAdminCentreEvent(id) {
     return unwrap(response);
 }
 
+export async function getAdminCentreEventRsvps(id) {
+    const response = await client.get(`/admin/centre-events/${id}/rsvps`);
+    return unwrap(response) || null;
+}
+
+export async function getAdminCentreEventRsvpsExport(id) {
+    const response = await client.get(`/admin/centre-events/${id}/rsvps/export`, { responseType: 'blob' });
+    return response.data;
+}
+
+export async function createPublicEventRsvp(eventId, payload) {
+    const response = await client.post(`/public/events/${eventId}/rsvp`, payload);
+    return unwrap(response);
+}
+
 export async function getHomeData() {
     const response = await client.get('/public/home');
     return unwrap(response) || { announcements: [], centreEvents: [] };

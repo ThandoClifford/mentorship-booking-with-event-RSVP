@@ -10,6 +10,7 @@ import { Appointment } from '../models/Appointment.js';
 import { AppointmentActionToken } from '../models/AppointmentActionToken.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { CentreEvent } from '../models/CentreEvent.js';
+import { EventRSVP } from '../models/EventRSVP.js';
 import { GroupSession } from '../models/GroupSession.js';
 import { MentorAvailability } from '../models/MentorAvailability.js';
 import { PasswordResetToken } from '../models/PasswordResetToken.js';
@@ -30,7 +31,8 @@ import {
   sendPasswordResetEmail,
   sendPublicAppointmentRequestReceivedEmail,
   sendPublicAppointmentRequestedEmail,
-  sendConfirmedCalendarInvitation
+  sendConfirmedCalendarInvitation,
+  sendPublicEventRsvpConfirmationEmail
 } from '../services/mail.js';
 import { writeAudit } from '../utils/audit.js';
 import { signToken } from '../utils/auth.js';
@@ -1027,7 +1029,19 @@ router.get('/admin/centre-events', authRequired, requireRole('admin', 'super_adm
 });
 
 router.post('/admin/centre-events', authRequired, requireRole('admin', 'super_admin'), async (req, res) => {
-  const { event_title, event_date, event_time, event_venue, event_category } = req.body || {};
+  const {
+    event_title,
+    event_date,
+    event_time,
+    event_venue,
+    event_category,
+    description,
+    end_time,
+    capacity,
+    registration_deadline,
+    image
+  } = req.body || {};
+
   if (!event_title || !event_date || !event_time || !event_venue || !event_category) {
     return failure(res, 'Validation failed', null, 422);
   }
@@ -1037,7 +1051,12 @@ router.post('/admin/centre-events', authRequired, requireRole('admin', 'super_ad
     event_date: String(event_date),
     event_time: String(event_time),
     venue: String(event_venue),
-    category: String(event_category)
+    category: String(event_category),
+    description: description !== undefined ? String(description) : null,
+    end_time: end_time !== undefined ? String(end_time) : null,
+    capacity: capacity !== undefined ? Number(capacity) || null : null,
+    registration_deadline: registration_deadline !== undefined ? String(registration_deadline) : null,
+    image: image !== undefined ? String(image) : null
   });
 
   await writeAudit(req, req.user._id, 'centre_event.created', 'CentreEvent', event._id);
@@ -1053,6 +1072,171 @@ router.delete('/admin/centre-events/:id', authRequired, requireRole('admin', 'su
 
   await writeAudit(req, req.user._id, 'centre_event.deleted', 'CentreEvent', event._id);
   return success(res, 'Centre event deleted');
+});
+
+router.get('/admin/centre-events/:id/rsvps', authRequired, requireRole('admin', 'super_admin'), async (req, res) => {
+  const { id } = req.params;
+  if (!isObjectId(id)) return failure(res, 'Centre event not found', null, 404);
+
+  const event = await CentreEvent.findById(id);
+  if (!event) return failure(res, 'Centre event not found', null, 404);
+
+  const rsvps = await EventRSVP.find({ event_id: id }).sort({ createdAt: -1 });
+  const count = await EventRSVP.countDocuments({ event_id: id });
+
+  return success(res, 'Event RSVPs retrieved', {
+    event: event.toJSON(),
+    count,
+    capacity: event.capacity,
+    rsvps: rsvps.map((rsvp) => ({
+      id: String(rsvp._id),
+      full_name: rsvp.full_name,
+      student_number: rsvp.student_number,
+      email: rsvp.email,
+      phone: rsvp.phone,
+      faculty_programme: rsvp.faculty_programme,
+      created_at: rsvp.createdAt
+    }))
+  });
+});
+
+router.get('/admin/centre-events/:id/rsvps/export', authRequired, requireRole('admin', 'super_admin'), async (req, res) => {
+  const { id } = req.params;
+  if (!isObjectId(id)) return failure(res, 'Centre event not found', null, 404);
+
+  const event = await CentreEvent.findById(id);
+  if (!event) return failure(res, 'Centre event not found', null, 404);
+
+  const rsvps = await EventRSVP.find({ event_id: id }).sort({ createdAt: -1 });
+
+  const headers = ['Full Name', 'Student Number', 'UMP Email', 'Phone Number', 'Faculty / Programme', 'Event', 'Event Date', 'Event Time', 'Venue', 'RSVP Date/Time'];
+  const rows = rsvps.map((rsvp) => [
+    rsvp.full_name,
+    rsvp.student_number,
+    rsvp.email,
+    rsvp.phone || '',
+    rsvp.faculty_programme || '',
+    event.title,
+    event.event_date,
+    event.event_time,
+    event.venue,
+    rsvp.createdAt ? new Date(rsvp.createdAt).toISOString() : ''
+  ]);
+
+  try {
+    const XLSX = await import('xlsx');
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'RSVP List');
+
+    const safeName = String(event.title || 'Event').replace(/[^a-z0-9]/gi, '_');
+    const filename = `UMP-CFERI_${safeName}_RSVP_List.xlsx`;
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(buffer);
+  } catch (error) {
+    console.error('Event RSVP export failed:', error);
+    return failure(res, 'Failed to generate export', null, 500);
+  }
+});
+
+router.post('/public/events/:id/rsvp', async (req, res) => {
+  const { id } = req.params;
+  if (!isObjectId(id)) return failure(res, 'Event not found', null, 404);
+
+  const event = await CentreEvent.findById(id);
+  if (!event) return failure(res, 'Event not found', null, 404);
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (event.event_date < today) {
+    return failure(res, 'This event has already taken place.', null, 409);
+  }
+
+  if (event.registration_deadline && event.registration_deadline < today) {
+    return failure(res, 'Registration for this event has closed.', null, 409);
+  }
+
+  if (typeof event.capacity === 'number' && event.capacity > 0) {
+    const rsvpCount = await EventRSVP.countDocuments({ event_id: id });
+    if (rsvpCount >= event.capacity) {
+      return failure(res, 'This event has reached its capacity.', null, 409);
+    }
+  }
+
+  const raw = req.body || {};
+  const full_name = String(raw.full_name || '').trim();
+  const student_number = String(raw.student_number || '').trim();
+  const email = String(raw.email || '').trim().toLowerCase();
+  const phone = String(raw.phone || '').trim();
+  const faculty_programme = String(raw.faculty_programme || '').trim();
+
+  if (!full_name) return failure(res, 'Validation failed', null, 422);
+  if (!student_number || student_number.length < 3) return failure(res, 'Validation failed', null, 422);
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return failure(res, 'Validation failed', null, 422);
+
+  const configuredDomain = String(process.env.UMP_STUDENT_EMAIL_DOMAIN || '').trim().toLowerCase();
+  if (!configuredDomain) {
+    console.error('Public RSVP blocked: UMP_STUDENT_EMAIL_DOMAIN configuration is missing.');
+    await writeAudit(req, null, 'public_event_rsvp.email_domain_missing', 'EventRSVP', null, { event_id: id, email });
+    return failure(res, 'Student email verification is temporarily unavailable. Please try again later.', null, 503);
+  }
+
+  const domain = String(email.split('@')[1] || '').trim().toLowerCase();
+  if (!domain || domain !== configuredDomain) {
+    return failure(res, 'Validation failed', null, 422);
+  }
+
+  const existing = await EventRSVP.findOne({
+    event_id: id,
+    $or: [
+      { student_number },
+      { email }
+    ]
+  });
+
+  if (existing) {
+    return failure(res, 'You have already RSVP\'d for this event.', null, 409);
+  }
+
+  let rsvp;
+  try {
+    rsvp = await EventRSVP.create({
+      event_id: id,
+      full_name,
+      student_number,
+      email,
+      phone: phone || null,
+      faculty_programme: faculty_programme || null
+    });
+  } catch (error) {
+    await writeAudit(req, null, 'public_event_rsvp.creation_failed', 'EventRSVP', null, { event_id: id, error: error?.message || String(error) });
+    return failure(res, 'Unable to submit RSVP', null, 500);
+  }
+
+  await sendPublicEventRsvpConfirmationEmail(event, {
+    full_name,
+    student_number,
+    email,
+    phone,
+    faculty_programme
+  });
+
+  await writeAudit(req, null, 'public_event_rsvp.created', 'EventRSVP', rsvp._id);
+  return success(res, 'RSVP submitted successfully', {
+    id: String(rsvp._id),
+    event_id: String(event._id),
+    full_name,
+    student_number,
+    email,
+    phone,
+    faculty_programme
+  }, 201);
 });
 
 router.get('/admin/ops', authRequired, requireRole('admin', 'super_admin'), async (_req, res) => {

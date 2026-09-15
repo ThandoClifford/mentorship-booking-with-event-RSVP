@@ -305,6 +305,36 @@ export async function sendConfirmedCalendarInvitation(appointment) {
   return studentSent || mentorSent;
 }
 
+export async function sendPublicEventRsvpConfirmationEmail(event, rsvp) {
+  const eventDate = event?.event_date || 'TBD';
+  const eventTime = String(event?.event_time || '').slice(0, 5);
+  const endTime = event?.end_time ? String(event.end_time).slice(0, 5) : null;
+  const timeLabel = endTime ? `${eventTime} - ${endTime}` : eventTime || 'TBD';
+  const studentName = rsvp?.full_name || 'Student';
+
+  const subject = `RSVP confirmed: ${event?.title || 'UMP-CFERI event'}`;
+
+  const text = `Hello ${studentName},\n\nYour RSVP for the following event has been confirmed:\n\nEvent: ${event?.title || 'UMP-CFERI event'}\nDate: ${eventDate}\nTime: ${timeLabel}\nVenue: ${event?.venue || 'TBD'}\n\nWe look forward to seeing you there.\n\nRegards,\nThe Mentorship Academy`;
+
+  const html = `<p>Hello ${studentName},</p>
+<p>Your RSVP for the following event has been confirmed:</p>
+<ul>
+  <li><strong>Event:</strong> ${event?.title || 'UMP-CFERI event'}</li>
+  <li><strong>Date:</strong> ${eventDate}</li>
+  <li><strong>Time:</strong> ${timeLabel}</li>
+  <li><strong>Venue:</strong> ${event?.venue || 'TBD'}</li>
+</ul>
+<p>We look forward to seeing you there.</p>
+<p>Regards,<br/>The Mentorship Academy</p>`;
+
+  return sendEmail({
+    to: rsvp?.email,
+    subject,
+    text,
+    html
+  });
+}
+
 export async function sendAppointmentConfirmedEmails(appointment) {
   const when = appointmentLine(appointment);
   const studentName = resolvePublicStudentName(appointment);
