@@ -37,7 +37,7 @@ export function generateICS({ summary, description, organizer, attendees, start,
     'VERSION:2.0',
     'PRODID:-//UMP-CFERI//Mentorship Booking//EN',
     'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH'
+    'METHOD:REQUEST'
   ];
 
   if (organizer) {

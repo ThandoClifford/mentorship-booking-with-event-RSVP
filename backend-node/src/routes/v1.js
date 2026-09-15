@@ -505,6 +505,45 @@ router.get('/public/appointment-actions/:token', async (req, res) => {
     return failure(res, 'This appointment is no longer pending and cannot be updated from this link.', null, 409);
   }
 
+  const action = actionToken.action === 'accept' ? 'accept' : actionToken.action === 'decline' ? 'decline' : 'unknown';
+  if (action === 'unknown') {
+    return failure(res, 'Invalid action.', null, 400);
+  }
+
+  return success(res, 'Action retrieved', {
+    action,
+    appointment: mapAppointment(appointment)
+  });
+});
+
+router.post('/public/appointment-actions/:token', async (req, res) => {
+  const { token } = req.params;
+  if (!token) {
+    return failure(res, 'Invalid action link', null, 400);
+  }
+
+  const actionToken = await AppointmentActionToken.findOne({ token });
+  if (!actionToken) {
+    return failure(res, 'This action link is invalid or has already been used.', null, 404);
+  }
+
+  if (new Date(actionToken.expires_at).getTime() < Date.now()) {
+    return failure(res, 'This action link has expired. Please contact the mentor to resend the request.', null, 410);
+  }
+
+  if (actionToken.used_at) {
+    return failure(res, 'This action has already been processed.', null, 410);
+  }
+
+  const appointment = await loadAppointmentWithRelations(actionToken.appointment_id);
+  if (!appointment) {
+    return failure(res, 'Appointment not found.', null, 404);
+  }
+
+  if (appointment.status !== 'pending') {
+    return failure(res, 'This appointment is no longer pending and cannot be updated from this link.', null, 409);
+  }
+
   const isAccept = actionToken.action === 'accept';
   const isDecline = actionToken.action === 'decline';
 

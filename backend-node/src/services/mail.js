@@ -278,7 +278,7 @@ export async function sendConfirmedCalendarInvitation(appointment) {
     {
       filename: `appointment-${appointment.id}.ics`,
       content: ics,
-      contentType: 'text/calendar; charset=utf-8; method=PUBLISH'
+      contentType: 'text/calendar; charset=utf-8; method=REQUEST'
     }
   ];
 
