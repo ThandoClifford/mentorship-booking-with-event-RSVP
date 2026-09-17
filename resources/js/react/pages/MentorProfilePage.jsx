@@ -3,6 +3,10 @@ import { useParams } from 'react-router-dom';
 import { getPublicMentor, getPublicMentorSlots, createPublicAppointment } from '../api';
 import BookSessionModal from '../components/BookSessionModal';
 
+function isObjectId(value) {
+    return typeof value === 'string' && /^[0-9a-fA-F]{24}$/.test(value);
+}
+
 export default function MentorProfilePage({ user }) {
     const { id } = useParams();
     const [mentor, setMentor] = useState(null);
@@ -21,11 +25,18 @@ export default function MentorProfilePage({ user }) {
             setError('');
             setNotFound(false);
             try {
-                const mentorData = await getPublicMentor(id);
-                if (!mentorData || cancelled) {
+                if (!id || !isObjectId(id)) {
                     setNotFound(true);
                     return;
                 }
+                const mentorData = await getPublicMentor(id);
+                if (!mentorData) {
+                    if (!cancelled) {
+                        setNotFound(true);
+                    }
+                    return;
+                }
+                if (cancelled) return;
                 const slotData = await getPublicMentorSlots(id);
                 if (!cancelled) {
                     setMentor(mentorData);
@@ -33,7 +44,8 @@ export default function MentorProfilePage({ user }) {
                 }
             } catch (err) {
                 if (!cancelled) {
-                    setError(err?.response?.data?.message || 'Unable to load the mentor profile.');
+                    const message = err?.response?.data?.message || 'Unable to load the mentor profile.';
+                    setError(message);
                 }
             } finally {
                 if (!cancelled) setLoading(false);
