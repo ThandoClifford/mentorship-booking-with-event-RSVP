@@ -1,21 +1,22 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export default function PublicNavbar({ user, onLogout }) {
     return (
         <nav className="ump-public-navbar">
             <div className="ump-public-navbar-inner">
-                <a className="ump-public-brand" href="/">
+                <Link className="ump-public-brand" to="/#home">
                     <span className="ump-public-brand-mark">UMP-CFERI</span>
-                </a>
+                </Link>
 
                 <div className="ump-public-navlinks">
-                    <a href="/" className="ump-public-navlink">Home</a>
-                    <a href="/about" className="ump-public-navlink">About</a>
-                    <a href="/mentors" className="ump-public-navlink">Mentors</a>
-                    <a href="/#events" className="ump-public-navlink">Events</a>
-                    <a href="/#stories" className="ump-public-navlink">Success Stories</a>
-                    <a href="/programs" className="ump-public-navlink">Programs</a>
-                    <a href="/contact" className="ump-public-navlink">Contact</a>
+                    <Link to="/#home" className="ump-public-navlink">Home</Link>
+                    <Link to="/#about" className="ump-public-navlink">About</Link>
+                    <Link to="/#mentors" className="ump-public-navlink">Mentors</Link>
+                    <Link to="/#events" className="ump-public-navlink">Events</Link>
+                    <Link to="/#stories" className="ump-public-navlink">Success Stories</Link>
+                    <Link to="/#programs" className="ump-public-navlink">Programs</Link>
+                    <Link to="/#contact" className="ump-public-navlink">Contact</Link>
                 </div>
 
                 <div className="ump-public-auth">

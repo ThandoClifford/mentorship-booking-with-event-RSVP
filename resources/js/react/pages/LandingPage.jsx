@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getHomeData, getPublicMentors } from '../api';
 import PublicNavbar from '../components/PublicNavbar';
 import SiteFooter from '../components/SiteFooter';
@@ -7,6 +8,7 @@ import MentorProfileModal from '../components/MentorProfileModal';
 import EventRSVPModal from '../components/EventRSVPModal';
 
 export default function LandingPage({ user }) {
+    const { hash } = useLocation();
     const [dbMentors, setDbMentors] = useState([]);
     const [mentorsLoading, setMentorsLoading] = useState(true);
     const [mentorsError, setMentorsError] = useState('');
@@ -77,6 +79,13 @@ export default function LandingPage({ user }) {
 
         return () => { active = false; };
     }, []);
+
+    useEffect(() => {
+        if (!hash) return;
+
+        const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [hash]);
 
     return (
         <div className="ump-public-page">
@@ -297,4 +306,3 @@ export default function LandingPage({ user }) {
         </div>
     );
 }
-

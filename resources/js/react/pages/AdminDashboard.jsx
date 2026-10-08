@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { getAdminCentreEvents, getAdminCentreEventRsvps, getAdminCentreEventRsvpsExport, deleteAdminCentreEvent } from '../api';
-import PublicNavbar from '../components/PublicNavbar';
 import SiteFooter from '../components/SiteFooter';
 
 export default function AdminDashboard() {
@@ -81,8 +80,7 @@ export default function AdminDashboard() {
     const selectedEvent = events.find((e) => String(e.id) === String(selectedEventId));
 
     return (
-        <div className="ump-public-page">
-            <PublicNavbar user={null} />
+        <div className="ump-admin-page">
             <main className="container mx-auto py-8" style={{ maxWidth: '1200px' }}>
                 <h1 className="text-3xl font-bold mb-6 text-slate-900">Admin Dashboard</h1>
                 <p className="text-slate-600 mb-8">Manage events and view RSVP lists</p>

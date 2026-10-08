@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export default function SiteFooter() {
     return (
@@ -10,18 +11,18 @@ export default function SiteFooter() {
                 </div>
                 <div className="ump-footer-links">
                     <h4>Explore</h4>
-                    <a href="#/">Home</a>
-                    <a href="#/about">About</a>
-                    <a href="#/mentors">Mentors</a>
-                    <a href="#/programs">Programs</a>
+                    <Link to="/#home">Home</Link>
+                    <Link to="/#about">About</Link>
+                    <Link to="/#mentors">Mentors</Link>
+                    <Link to="/#programs">Programs</Link>
                 </div>
                 <div className="ump-footer-links">
                     <h4>Public Services</h4>
-                    <a href="#events">Events</a>
-                    <a href="#stories">Success Stories</a>
-                    <a href="#contact">Contact</a>
+                    <Link to="/#events">Events</Link>
+                    <Link to="/#stories">Success Stories</Link>
+                    <Link to="/#contact">Contact</Link>
                 </div>
-                <div className="ump-footer-links">
+                <div id="contact" className="ump-footer-links">
                     <h4>Contact</h4>
                     <a href="mailto:mentorship@ump.ac.za">mentorship@ump.ac.za</a>
                     <span>UMPCFERI Mentorship Portal</span>

@@ -257,6 +257,24 @@ body {
     color: var(--tma-text);
 }
 
+.ump-public-page [id] {
+    scroll-margin-top: 88px;
+}
+
+[data-role="admin"] {
+    --tma-pink: var(--ump-primary-navy);
+    --tma-pink-dark: var(--ump-deep-blue);
+    --tma-gold: var(--ump-accent-gold);
+}
+
+.ump-admin-page {
+    --tma-pink: var(--ump-primary-navy);
+    --tma-pink-dark: var(--ump-deep-blue);
+    --tma-gold: var(--ump-accent-gold);
+    background: var(--ump-page-gray);
+    color: var(--ump-text-dark);
+}
+
 .ump-public-navbar {
     background: var(--ump-primary-navy);
     color: var(--ump-white);

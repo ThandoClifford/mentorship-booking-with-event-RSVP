@@ -51,10 +51,7 @@ function Sidebar({ role, isOpen, onClose }) {
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--tma-pink)] text-white font-bold text-lg">
                                 {BRAND.shortName?.[0] || 'T'}
                             </div>
-                            <div>
-                                <span className="text-sm font-bold tracking-wide text-[var(--tma-text)]">MENTORSHIP</span>
-                                <span className="text-sm font-bold tracking-wide text-[var(--tma-pink)]"> ACADEMY</span>
-                            </div>
+                            <span className="text-sm font-bold tracking-wide text-[var(--tma-text)]">UMP-CFERI</span>
                         </Link>
                         <button type="button" className="lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100" onClick={onClose} aria-label="Close">
                             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
@@ -145,7 +142,7 @@ export default function DashboardShell({ user, children }) {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--tma-surface)] text-[var(--tma-text)]">
+        <div data-role={role} className="min-h-screen bg-[var(--tma-surface)] text-[var(--tma-text)]">
             <header className="sticky top-0 z-30 border-b border-[var(--tma-border)] bg-white/95 backdrop-blur-sm shadow-sm">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:pl-72 lg:px-8">
                     <div className="flex items-center gap-3">

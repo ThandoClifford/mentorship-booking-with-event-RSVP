@@ -34,6 +34,7 @@ import {
   sendConfirmedCalendarInvitation,
   sendPublicEventRsvpConfirmationEmail
 } from '../services/mail.js';
+import { ensureUpcomingSlotsForMentor, isStandardSlot, isValidAvailabilityWindow, standardSlotsWithinAvailability } from '../services/slots.js';
 import { writeAudit } from '../utils/audit.js';
 import { signToken } from '../utils/auth.js';
 import { failure, success } from '../utils/response.js';
@@ -334,6 +335,8 @@ router.get('/public/mentors/:id/slots', async (req, res) => {
     return failure(res, 'Mentor not found', null, 404);
   }
 
+  await ensureUpcomingSlotsForMentor(mentor._id);
+
   const today = new Date().toISOString().slice(0, 10);
   const slots = await TimeSlot.find({
     mentor_id: mentor._id,
@@ -341,7 +344,7 @@ router.get('/public/mentors/:id/slots', async (req, res) => {
     date: { $gte: today }
   }).sort({ date: 1, start_time: 1 }).select('id _id date start_time end_time status mentor_id');
 
-  return success(res, 'Available slots retrieved', slots.map((slot) => ({
+  return success(res, 'Available slots retrieved', slots.filter(isStandardSlot).map((slot) => ({
     id: String(slot._id),
     date: slot.date,
     start_time: slot.start_time,
@@ -394,6 +397,10 @@ router.post('/public/appointments', async (req, res) => {
   const slot = await TimeSlot.findById(slot_id);
   if (!slot || String(slot.mentor_id) !== mentor_id || slot.status !== 'available') {
     return failure(res, 'This appointment time is no longer available. Please select another time.', null, 409);
+  }
+
+  if (!isStandardSlot(slot)) {
+    return failure(res, 'Appointment slots must be one hour long and between 09:00 and 16:00.', null, 422);
   }
 
   if (!slotStartIsInFuture(slot)) {
@@ -776,7 +783,7 @@ router.post('/admin/mentors/:mentorId/availability', authRequired, requireRole('
   const { day_of_week, start_time, end_time, is_active } = req.body || {};
 
   if (!isObjectId(mentorId)) return failure(res, 'Mentor not found', null, 404);
-  if (!['tuesday', 'thursday'].includes(day_of_week) || !start_time || !end_time || end_time <= start_time) {
+  if (!['tuesday', 'thursday'].includes(day_of_week) || !isValidAvailabilityWindow(start_time, end_time)) {
     return failure(res, 'Validation failed', null, 422);
   }
 
@@ -815,8 +822,8 @@ router.patch('/admin/availability/:id', authRequired, requireRole('admin', 'supe
   const start = req.body.start_time ?? availability.start_time;
   const end = req.body.end_time ?? availability.end_time;
 
-  if (!['tuesday', 'thursday'].includes(day) || end <= start) {
-    return failure(res, 'The end_time must be after start_time.', null, 422);
+  if (!['tuesday', 'thursday'].includes(day) || !isValidAvailabilityWindow(start, end)) {
+    return failure(res, 'Availability must be within 09:00 and 16:00, with end_time after start_time.', null, 422);
   }
 
   availability.day_of_week = day;
@@ -842,7 +849,7 @@ router.delete('/admin/availability/:id', authRequired, requireRole('admin', 'sup
 
 router.post('/admin/mentors/:mentorId/generate-slots', authRequired, requireRole('admin', 'super_admin'), async (req, res) => {
   const { mentorId } = req.params;
-  const { start_date, end_date, slot_duration_minutes } = req.body || {};
+  const { start_date, end_date } = req.body || {};
 
   if (!isObjectId(mentorId)) return failure(res, 'Mentor not found', null, 404);
   if (!start_date || !end_date || end_date < start_date) return failure(res, 'Validation failed', null, 422);
@@ -850,7 +857,6 @@ router.post('/admin/mentors/:mentorId/generate-slots', authRequired, requireRole
   const mentor = await User.findOne({ _id: mentorId, role: 'mentor' });
   if (!mentor) return failure(res, 'Mentor not found', null, 404);
 
-  const duration = [15, 30, 45, 60].includes(Number(slot_duration_minutes)) ? Number(slot_duration_minutes) : 60;
   let created = 0;
   let skipped = 0;
 
@@ -865,26 +871,14 @@ router.post('/admin/mentors/:mentorId/generate-slots', authRequired, requireRole
     const availabilities = await MentorAvailability.find({ mentor_id: mentor._id, day_of_week: day, is_active: true });
 
     for (const availability of availabilities) {
-      let [h, m] = availability.start_time.split(':').map(Number);
-      const [endH, endM] = availability.end_time.split(':').map(Number);
-
-      while (h * 60 + m + duration <= endH * 60 + endM) {
-        const startTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-        const totalEnd = h * 60 + m + duration;
-        const eH = Math.floor(totalEnd / 60);
-        const eM = totalEnd % 60;
-        const endTime = `${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}:00`;
-
-        const exists = await TimeSlot.findOne({ mentor_id: mentor._id, date: dateStr, start_time: startTime, end_time: endTime });
+      for (const { start_time, end_time } of standardSlotsWithinAvailability(availability)) {
+        const exists = await TimeSlot.findOne({ mentor_id: mentor._id, date: dateStr, start_time, end_time });
         if (!exists) {
-          await TimeSlot.create({ mentor_id: mentor._id, date: dateStr, start_time: startTime, end_time: endTime, status: 'available' });
+          await TimeSlot.create({ mentor_id: mentor._id, date: dateStr, start_time, end_time, status: 'available' });
           created += 1;
         } else {
           skipped += 1;
         }
-
-        h = eH;
-        m = eM;
       }
     }
   }
@@ -1355,7 +1349,7 @@ router.get('/student/slots', authRequired, requireRole('student'), async (req, r
     slots = slots.filter((slot) => slot.date >= start && slot.date <= end);
   }
 
-  return success(res, 'Available slots retrieved', slots.sort((a, b) => `${a.date} ${a.start_time}`.localeCompare(`${b.date} ${b.start_time}`)).map(mapSlot));
+  return success(res, 'Available slots retrieved', slots.filter(isStandardSlot).sort((a, b) => `${a.date} ${a.start_time}`.localeCompare(`${b.date} ${b.start_time}`)).map(mapSlot));
 });
 
 router.post('/student/appointments', authRequired, requireRole('student'), async (req, res) => {
@@ -1367,6 +1361,10 @@ router.post('/student/appointments', authRequired, requireRole('student'), async
   const slot = await TimeSlot.findById(time_slot_id);
   if (!slot || slot.status !== 'available') {
     return failure(res, 'Selected slot is no longer available', null, 422);
+  }
+
+  if (!isStandardSlot(slot)) {
+    return failure(res, 'Appointment slots must be one hour long and between 09:00 and 16:00.', null, 422);
   }
 
   if (!['tuesday', 'thursday'].includes(dayName(slot.date))) {

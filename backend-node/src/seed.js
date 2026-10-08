@@ -201,7 +201,7 @@ async function seed() {
     mentor_id: mentorA._id,
     date: '2026-03-19',
     start_time: '09:00',
-    end_time: '09:30',
+    end_time: '10:00',
     status: 'booked'
   });
 
@@ -209,7 +209,7 @@ async function seed() {
     mentor_id: mentorA._id,
     date: '2026-03-19',
     start_time: '10:00',
-    end_time: '10:30',
+    end_time: '11:00',
     status: 'booked'
   });
 
@@ -217,7 +217,7 @@ async function seed() {
     mentor_id: mentorB._id,
     date: '2026-03-21',
     start_time: '11:00',
-    end_time: '11:30',
+    end_time: '12:00',
     status: 'booked'
   });
 
@@ -225,7 +225,7 @@ async function seed() {
     mentor_id: mentorA._id,
     date: '2026-03-22',
     start_time: '13:00',
-    end_time: '13:30',
+    end_time: '14:00',
     status: 'available'
   });
 
@@ -233,7 +233,7 @@ async function seed() {
     mentor_id: mentorB._id,
     date: '2026-03-22',
     start_time: '14:00',
-    end_time: '14:30',
+    end_time: '15:00',
     status: 'available'
   });
 

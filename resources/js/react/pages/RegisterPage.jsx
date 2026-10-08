@@ -38,7 +38,7 @@ export default function RegisterPage({ onAuthenticated }) {
     };
 
     return (
-        <AuthLayout title="Create Account" subtitle="Join The Mentorship Academy as a mentee or mentor.">
+        <AuthLayout title="Create Account" subtitle="Join the UMP-CFERI Mentorship Portal as a mentee or mentor.">
             <form className="grid gap-4" onSubmit={submit}>
                 <input className="w-full rounded-md border border-[var(--tma-border)] bg-white px-3 py-2 text-sm" placeholder="Name" value={form.name} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} required />
                 <input className="w-full rounded-md border border-[var(--tma-border)] bg-white px-3 py-2 text-sm" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm((v) => ({ ...v, email: e.target.value }))} required />

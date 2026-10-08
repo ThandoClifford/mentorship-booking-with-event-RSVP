@@ -56,7 +56,7 @@ export default function LoginPage({ onAuthenticated, forcedRole = '' }) {
     };
 
     return (
-        <AuthLayout title={title} subtitle="Sign in to The Mentorship Academy Platform.">
+        <AuthLayout title={title} subtitle="Sign in to the UMP-CFERI Mentorship Portal.">
             <form className="grid gap-4" onSubmit={submit}>
                 <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--tma-text)]" htmlFor="email">Email</label>
