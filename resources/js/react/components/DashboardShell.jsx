@@ -30,7 +30,8 @@ const ROLE_SIDEBAR_ITEMS = {
 };
 
 function Sidebar({ role, isOpen, onClose }) {
-    const items = ROLE_SIDEBAR_ITEMS[role] || ROLE_SIDEBAR_ITEMS.student;
+    const items = ROLE_SIDEBAR_ITEMS[role] || (role === 'super_admin' ? ROLE_SIDEBAR_ITEMS.admin : ROLE_SIDEBAR_ITEMS.student);
+    const navigate = useNavigate();
 
     const handleNav = () => {
         if (window.innerWidth < 1024) onClose();
@@ -47,7 +48,7 @@ function Sidebar({ role, isOpen, onClose }) {
             >
                 <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between px-5 py-5 border-b border-[var(--tma-border)]">
-                        <Link to={role === 'admin' ? '/admin' : `/${role}`} className="flex items-center gap-3" onClick={onClose}>
+                        <Link to={role === 'admin' || role === 'super_admin' ? '/admin' : `/${role}`} className="flex items-center gap-3" onClick={onClose}>
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--tma-pink)] text-white font-bold text-lg">
                                 {BRAND.shortName?.[0] || 'T'}
                             </div>
@@ -68,8 +69,12 @@ function Sidebar({ role, isOpen, onClose }) {
                                         href={item.to}
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            const target = document.getElementById(item.to.split('#')[1]);
-                                            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                            const [path, hash] = item.to.split('#');
+                                            navigate(item.to);
+                                            window.setTimeout(() => {
+                                                const target = document.getElementById(hash);
+                                                target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                            }, path === window.location.pathname ? 0 : 100);
                                             handleNav();
                                         }}
                                         className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[var(--tma-text)] transition-all duration-200 hover:bg-[var(--tma-surface)] hover:text-[var(--tma-pink)]"

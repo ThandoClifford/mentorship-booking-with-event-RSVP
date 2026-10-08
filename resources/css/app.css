@@ -721,6 +721,15 @@ body {
     object-fit: cover;
 }
 
+.ump-event-image {
+    position: relative;
+}
+
+.ump-event-image img.ump-event-brand {
+    background: white;
+    object-fit: contain;
+}
+
 .ump-event-content {
     padding: 22px;
 }

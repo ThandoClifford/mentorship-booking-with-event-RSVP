@@ -69,6 +69,12 @@ export default function EventRSVPModal({ event, onClose }) {
                     </button>
                 </div>
 
+                {event?.brandImage && (
+                    <div className="mb-4 flex justify-center rounded-lg bg-white p-3">
+                        <img src={event.brandImage} alt="SWEEP — Student Women Economic Empowerment Programme" className="max-h-48 w-full object-contain" />
+                    </div>
+                )}
+
                 {event?.description && (
                     <p className="mb-4 text-sm text-slate-600">{event.description}</p>
                 )}

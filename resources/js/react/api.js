@@ -132,6 +132,11 @@ export async function getAdminMentors() {
     return unwrap(response) || [];
 }
 
+export async function getAdminMentorAvailability(mentorId) {
+    const response = await client.get(`/admin/mentors/${mentorId}/availability`);
+    return unwrap(response) || [];
+}
+
 export async function getPendingMentorVerifications() {
     const response = await client.get('/admin/mentors/pending-verification');
     return unwrap(response) || [];

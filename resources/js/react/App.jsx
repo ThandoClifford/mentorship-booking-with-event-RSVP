@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { clearAuth, getStoredUser, logout, me, setAuth } from './api';
+import { clearAuth, getStoredUser, getToken, logout, me, setAuth } from './api';
 
 import { BRAND } from './brand';
 import DashboardShell from './components/DashboardShell';
@@ -46,6 +46,14 @@ function roleHomePath(role) {
     return '/login';
 }
 
+function AdminAccessRoute({ user, children }) {
+    if (!user) return <Navigate to="/admin/login" replace />;
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+        return <Navigate to={roleHomePath(roleValue(user))} replace />;
+    }
+    return children;
+}
+
 function AppRoutes({ user, setUser }) {
     const logoutNow = async () => {
         try { await logout(); } catch { }
@@ -72,7 +80,12 @@ function AppRoutes({ user, setUser }) {
 
     return (
         <Routes>
-            <Route path="/" element={<Homepage user={user} />} />
+            <Route
+                path="/"
+                element={user?.role === 'admin' || user?.role === 'super_admin'
+                    ? <Navigate to="/admin" replace />
+                    : <Homepage user={user} />}
+            />
             <Route path="/about" element={<AboutPage user={user} />} />
             <Route path="/mentors" element={<MentorsPage user={user} />} />
             <Route path="/mentors/:id" element={<MentorProfilePage user={user} />} />
@@ -91,9 +104,9 @@ function AppRoutes({ user, setUser }) {
             <Route path="/mentor" element={<DashboardShell user={user} onLogout={logoutNow}><MentorDashboard user={user} /></DashboardShell>} />
             <Route path="/mentor/availability" element={<MentorSectionRoute section="availability" />} />
             <Route path="/mentor/sessions" element={<MentorSectionRoute section="upcoming" />} />
-            <Route path="/admin" element={<DashboardShell user={user} onLogout={logoutNow}><AdminDashboard user={user} /></DashboardShell>} />
-            <Route path="/admin/bookings" element={<DashboardShell user={user} onLogout={logoutNow}><AdminBookingsPage /></DashboardShell>} />
-            <Route path="/admin/appointments/:id" element={<DashboardShell user={user} onLogout={logoutNow}><AdminAppointmentShowPage /></DashboardShell>} />
+            <Route path="/admin" element={<AdminAccessRoute user={user}><DashboardShell user={user} onLogout={logoutNow}><AdminDashboard user={user} /></DashboardShell></AdminAccessRoute>} />
+            <Route path="/admin/bookings" element={<AdminAccessRoute user={user}><DashboardShell user={user} onLogout={logoutNow}><AdminBookingsPage /></DashboardShell></AdminAccessRoute>} />
+            <Route path="/admin/appointments/:id" element={<AdminAccessRoute user={user}><DashboardShell user={user} onLogout={logoutNow}><AdminAppointmentShowPage /></DashboardShell></AdminAccessRoute>} />
 
             <Route path="/portal" element={<Navigate to={user ? roleHomePath(roleValue(user)) : '/login'} replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />

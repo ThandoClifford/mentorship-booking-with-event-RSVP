@@ -42,17 +42,32 @@ export default function LandingPage({ user }) {
                 }
 
                 if (homeData && Array.isArray(homeData.centreEvents)) {
-                    const mappedEvents = homeData.centreEvents.map((event) => ({
-                        id: event.id,
-                        title: event.title,
-                        description: event.description || event.summary || event.category || 'Public UMP-CFERI engagement event.',
-                        event_date: event.event_date,
-                        event_time: event.event_time,
-                        end_time: event.end_time || null,
-                        venue: event.venue,
-                        category: event.category,
-                        image: event.image || event.image_url || '/images/panel-discussion.jpg',
-                    }));
+                    const mappedEvents = homeData.centreEvents.map((event) => {
+                        const title = String(event.title || '');
+                        const sweepRelated = /sweep|women/i.test(`${title} ${event.category || ''}`);
+                        const eventImage = /industry mentorship showcase/i.test(title)
+                            ? '/images/sweep-women-group.jpg'
+                            : /final year project pitch clinic/i.test(title)
+                                ? '/images/sweep-women-speaker-1.jpg'
+                                : /career development panel/i.test(title)
+                                    ? '/images/sweep-women-speaker-2.jpg'
+                                    : null;
+
+                        return {
+                            id: event.id,
+                            title: event.title,
+                            description: event.description || event.summary || event.category || 'Public UMP-CFERI engagement event.',
+                            event_date: event.event_date,
+                            event_time: event.event_time,
+                            end_time: event.end_time || null,
+                            venue: event.venue,
+                            category: event.category,
+                            image: sweepRelated
+                                ? '/images/sweep-women-logo.png'
+                                : eventImage || event.image || event.image_url || '/images/panel-discussion.jpg',
+                            brandImage: sweepRelated ? '/images/sweep-women-logo.png' : null,
+                        };
+                    });
 
                     if (mappedEvents.length > 0) {
                         setEvents(mappedEvents);
@@ -197,7 +212,11 @@ export default function LandingPage({ user }) {
                         {!eventsLoading && !eventsError && events.map((event) => (
                             <article className="ump-event-card" key={event.id || event.title}>
                                 <div className="ump-event-image">
-                                    <img src={event.image || '/images/panel-discussion.jpg'} alt={event.title} />
+                                    <img
+                                        className={event.brandImage ? 'ump-event-brand' : ''}
+                                        src={event.image || '/images/panel-discussion.jpg'}
+                                        alt={event.brandImage ? 'SWEEP — Student Women Economic Empowerment Programme' : event.title}
+                                    />
                                 </div>
                                 <div className="ump-event-content">
                                     <span className="ump-event-date">{event.event_date || 'Upcoming'}</span>
