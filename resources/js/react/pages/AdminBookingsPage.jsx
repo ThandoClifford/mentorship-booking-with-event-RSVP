@@ -50,38 +50,40 @@ export default function AdminBookingsPage() {
         }
     };
 
-    const rows = filteredAppointments.map((appointment) => [
-        <span key="student" className="font-medium text-[var(--tma-text)]">{appointment.student?.name || '-'}</span>,
-        <span key="mentor" className="text-[var(--tma-muted)]">{appointment.mentor?.name || 'Unassigned'}</span>,
-        <span key="date" className="text-[var(--tma-muted)]">{appointment.time_slot?.date || '-'}</span>,
-        <span key="time" className="text-[var(--tma-muted)]">{appointment.time_slot ? `${appointment.time_slot.start_time || '-'} - ${appointment.time_slot.end_time || '-'}` : '-'}</span>,
-        <span key="status"><StatusBadge status={appointment.status} /></span>,
-        <div key="actions" className="flex flex-wrap gap-2">
-            {appointment.status === 'pending' ? (
-                <>
-                    <button
-                        type="button"
-                        disabled={savingId === appointment.id}
-                        onClick={() => handleAction(appointment.id, 'approve')}
-                        className="tma-btn tma-btn-primary text-xs"
-                    >
-                        {savingId === appointment.id ? 'Saving...' : 'Approve'}
-                    </button>
-                    <button
-                        type="button"
-                        disabled={savingId === appointment.id}
-                        onClick={() => handleAction(appointment.id, 'decline')}
-                        className="tma-btn tma-btn-destructive text-xs"
-                    >
-                        {savingId === appointment.id ? 'Saving...' : 'Reject'}
-                    </button>
-                </>
-            ) : null}
-            <Link to={`/admin/appointments/${appointment.id}`} className="tma-btn tma-btn-outline text-xs">
-                View
-            </Link>
-        </div>,
-    ]);
+    const rows = filteredAppointments.map((appointment) => ({
+        student: <span className="font-medium text-[var(--tma-text)]">{appointment.student?.name || '-'}</span>,
+        mentor: <span className="text-[var(--tma-muted)]">{appointment.mentor?.name || 'Unassigned'}</span>,
+        date: <span className="text-[var(--tma-muted)]">{appointment.time_slot?.date || '-'}</span>,
+        time: <span className="text-[var(--tma-muted)]">{appointment.time_slot ? `${appointment.time_slot.start_time || '-'} - ${appointment.time_slot.end_time || '-'}` : '-'}</span>,
+        status: <StatusBadge status={appointment.status} />,
+        actions: (
+            <div className="flex flex-wrap gap-2">
+                {appointment.status === 'pending' ? (
+                    <>
+                        <button
+                            type="button"
+                            disabled={savingId === appointment.id}
+                            onClick={() => handleAction(appointment.id, 'approve')}
+                            className="tma-btn tma-btn-primary text-xs"
+                        >
+                            {savingId === appointment.id ? 'Saving...' : 'Approve'}
+                        </button>
+                        <button
+                            type="button"
+                            disabled={savingId === appointment.id}
+                            onClick={() => handleAction(appointment.id, 'decline')}
+                            className="tma-btn tma-btn-destructive text-xs"
+                        >
+                            {savingId === appointment.id ? 'Saving...' : 'Reject'}
+                        </button>
+                    </>
+                ) : null}
+                <Link to={`/admin/appointments/${appointment.id}`} className="tma-btn tma-btn-outline text-xs">
+                    View
+                </Link>
+            </div>
+        ),
+    }));
 
     return (
         <div className="space-y-6">
@@ -116,12 +118,22 @@ export default function AdminBookingsPage() {
                 {loading ? (
                     <div className="py-12 text-center text-sm text-[var(--tma-muted)]">Loading bookings...</div>
                 ) : (
-                    <DataTable headers={['Student', 'Mentor', 'Date', 'Time', 'Status', 'Actions']} rows={rows} emptyMessage="No bookings match this filter." />
+                    <DataTable
+                        columns={[
+                            { key: 'student', label: 'Student' },
+                            { key: 'mentor', label: 'Mentor' },
+                            { key: 'date', label: 'Date' },
+                            { key: 'time', label: 'Time' },
+                            { key: 'status', label: 'Status' },
+                            { key: 'actions', label: 'Actions' },
+                        ]}
+                        data={rows}
+                    />
                 )}
             </SectionCard>
 
             {!loading && filteredAppointments.length === 0 && appointments.length > 0 ? (
-                <EmptyState title="No bookings found" copy="Try a different filter or refresh to load the latest bookings." />
+                <EmptyState title="No bookings found" description="Try a different filter or refresh to load the latest bookings." />
             ) : null}
         </div>
     );

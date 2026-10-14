@@ -24,7 +24,7 @@ export default function PublicNavbar({ user, onLogout }) {
                         <button onClick={onLogout} className="ump-public-login">Logout</button>
                     ) : (
                         <>
-                            <a href="/login" className="ump-public-login">Staff Login</a>
+                            <a href="/admin/login" className="ump-public-login">Admin Login</a>
                         </>
                     )}
                 </div>

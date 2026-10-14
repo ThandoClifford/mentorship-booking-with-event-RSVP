@@ -25,30 +25,15 @@ async function getTransporter() {
   if (!isMailConfigured()) return null;
   if (!transporterPromise) {
     const auth = env.mailUser ? { user: env.mailUser, pass: env.mailPass } : undefined;
-    const isGmail = String(env.mailHost || '').toLowerCase().includes('gmail.com');
-
     transporterPromise = Promise.resolve(
-      nodemailer.createTransport(
-        isGmail
-          ? {
-              host: 'smtp.gmail.com',
-              port: 587,
-              secure: false,
-              auth,
-              requireTLS: true,
-              authMethod: 'LOGIN',
-              tls: { rejectUnauthorized: false }
-            }
-          : {
-              host: env.mailHost,
-              port: env.mailPort,
-              secure: env.mailSecure,
-              auth,
-              requireTLS: true,
-              authMethod: 'LOGIN',
-              tls: { rejectUnauthorized: false }
-            }
-      )
+      nodemailer.createTransport({
+        host: env.mailHost,
+        port: env.mailPort,
+        secure: env.mailSecure,
+        auth,
+        requireTLS: true,
+        authMethod: 'LOGIN'
+      })
     );
   }
 
@@ -173,7 +158,7 @@ export async function sendAdminTestEmail({ email, name }) {
   const displayName = name || 'Admin';
   return sendEmail({
     to: safeEmail,
-    subject: 'The Mentorship Academy SMTP test email',
+    subject: 'UMPCFERI SMTP Test',
     text: `Hello ${displayName},\n\nThis is a test email from the The Mentorship Academy portal. SMTP is configured and working.\n\nRegards,\nThe Mentorship Academy`,
     html: `<p>Hello ${displayName},</p><p>This is a test email from the The Mentorship Academy portal.</p><p><strong>SMTP is configured and working.</strong></p><p>Regards,<br/>The Mentorship Academy</p>`
   });

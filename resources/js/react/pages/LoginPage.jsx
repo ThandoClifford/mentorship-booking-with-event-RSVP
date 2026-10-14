@@ -21,7 +21,8 @@ export default function LoginPage({ onAuthenticated, forcedRole = '' }) {
 
     const redirectTo = params.get('redirect') || '';
 
-    const title = loginRole === 'admin' ? 'Admin Sign In' : loginRole === 'mentor' ? 'Mentor Sign In' : 'Mentee Sign In';
+    const isAdminLogin = loginRole === 'admin';
+    const title = isAdminLogin ? 'Admin Login' : loginRole === 'mentor' ? 'Mentor Sign In' : 'Mentee Sign In';
 
     useEffect(() => {
         if (params.get('pending') === '1') {
@@ -56,7 +57,11 @@ export default function LoginPage({ onAuthenticated, forcedRole = '' }) {
     };
 
     return (
-        <AuthLayout title={title} subtitle="Sign in to the UMP-CFERI Mentorship Portal.">
+        <AuthLayout
+            title={title}
+            subtitle={isAdminLogin ? 'Secure access for UMP-CFERI administrators.' : 'Sign in to the UMP-CFERI Mentorship Portal.'}
+            variant={isAdminLogin ? 'admin' : 'default'}
+        >
             <form className="grid gap-4" onSubmit={submit}>
                 <div>
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--tma-text)]" htmlFor="email">Email</label>
@@ -68,11 +73,15 @@ export default function LoginPage({ onAuthenticated, forcedRole = '' }) {
                 </div>
                 {pendingMessage ? <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{pendingMessage}</p> : null}
                 {error ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-                <button className="tma-btn tma-btn-primary w-full" disabled={loading} type="submit">{loading ? 'Signing in...' : 'Sign In'}</button>
+                <button className="tma-btn tma-btn-primary w-full" disabled={loading} type="submit">{loading ? 'Signing in...' : isAdminLogin ? 'Admin Login' : 'Sign In'}</button>
             </form>
             <div className="mt-4 grid gap-2 text-sm">
                 <Link className="text-center font-medium text-[var(--tma-pink)] hover:underline" to="/forgot-password">Forgot password?</Link>
-                <Link className="text-center font-medium text-[var(--tma-pink)] hover:underline" to="/register">Create an account</Link>
+                {isAdminLogin ? (
+                    <Link className="text-center font-medium text-[var(--tma-pink)] hover:underline" to="/">Back to home</Link>
+                ) : (
+                    <Link className="text-center font-medium text-[var(--tma-pink)] hover:underline" to="/register">Create an account</Link>
+                )}
             </div>
         </AuthLayout>
     );

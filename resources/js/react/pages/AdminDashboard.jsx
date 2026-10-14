@@ -39,6 +39,23 @@ const EMPTY_ANNOUNCEMENT_FORM = {
 
 export default function AdminDashboard() {
     const { hash } = useLocation();
+    const requestedSection = decodeURIComponent(hash.slice(1));
+    const activeSection = [
+        'admin-overview',
+        'mentor-verification',
+        'mentors-availability',
+        'upcoming-appointments',
+        'announcements',
+        'centre-events',
+    ].includes(requestedSection) ? requestedSection : 'admin-overview';
+    const sectionHeading = {
+        'admin-overview': ['Admin Dashboard', 'Manage events and view RSVP lists.'],
+        'mentor-verification': ['Mentor Verification', 'Review and verify mentor applications.'],
+        'mentors-availability': ['Mentors & Availability', 'View mentor status and weekly availability.'],
+        'upcoming-appointments': ['Upcoming Appointments', 'Review pending and confirmed appointments.'],
+        announcements: ['Announcements', 'Publish updates for the UMP-CFERI portal.'],
+        'centre-events': ['Centre Events', 'Create events and manage attendee RSVPs.'],
+    }[activeSection];
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -276,26 +293,24 @@ export default function AdminDashboard() {
     return (
         <div className="ump-admin-page">
             <main className="container mx-auto py-8" style={{ maxWidth: '1200px' }}>
-                <h1 id="admin-overview" className="scroll-mt-24 text-3xl font-bold mb-6 text-slate-900">Admin Dashboard</h1>
-                <p className="text-slate-600 mb-8">Manage events and view RSVP lists</p>
+                <h1 id="admin-overview" className="scroll-mt-24 text-3xl font-bold mb-2 text-slate-900">{sectionHeading[0]}</h1>
+                <p className="text-slate-600 mb-8">{sectionHeading[1]}</p>
 
-                {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-                <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Admin overview">
+                <section className={`mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 ${activeSection !== 'admin-overview' ? 'hidden' : ''}`} aria-label="Admin overview">
                     {[
                         { label: 'Pending mentor verification', value: pendingMentors.length, href: '#mentor-verification' },
                         { label: 'Mentors', value: mentors.length, href: '#mentors-availability' },
                         { label: 'Upcoming appointments', value: appointments.filter((item) => ['pending', 'confirmed'].includes(item.status) && item.time_slot?.date >= new Date().toISOString().slice(0, 10)).length, href: '#upcoming-appointments' },
                         { label: 'Centre events', value: events.length, href: '#centre-events' },
                     ].map((metric) => (
-                        <a key={metric.label} href={metric.href} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-[#09203F]">
+                        <Link key={metric.label} to={`/admin${metric.href}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-[#09203F]">
                             <span className="text-sm text-slate-600">{metric.label}</span>
                             <strong className="mt-2 block text-3xl text-[#09203F]">{sectionLoading ? '—' : metric.value}</strong>
-                        </a>
+                        </Link>
                     ))}
                 </section>
 
-                <section id="mentor-verification" className="mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section id="mentor-verification" className={`mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${activeSection !== 'mentor-verification' ? 'hidden' : ''}`}>
                     <div className="mb-4 flex items-center justify-between gap-3">
                         <div>
                             <h2 className="text-xl font-bold text-slate-900">Mentor Verification</h2>
@@ -317,7 +332,7 @@ export default function AdminDashboard() {
                             </div>}
                 </section>
 
-                <section id="mentors-availability" className="mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section id="mentors-availability" className={`mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${activeSection !== 'mentors-availability' ? 'hidden' : ''}`}>
                     <h2 className="text-xl font-bold text-slate-900">Mentors & Availability</h2>
                     <p className="mb-4 mt-1 text-sm text-slate-600">View mentor status and their configured weekly availability.</p>
                     {sectionErrors.mentors && <p role="alert" className="mb-3 text-sm text-red-700">{sectionErrors.mentors}</p>}
@@ -352,7 +367,7 @@ export default function AdminDashboard() {
                             </div>}
                 </section>
 
-                <section id="upcoming-appointments" className="mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section id="upcoming-appointments" className={`mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${activeSection !== 'upcoming-appointments' ? 'hidden' : ''}`}>
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <h2 className="text-xl font-bold text-slate-900">Upcoming Appointments</h2>
@@ -379,7 +394,7 @@ export default function AdminDashboard() {
                             </div>}
                 </section>
 
-                <section id="announcements" className="mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section id="announcements" className={`mb-8 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${activeSection !== 'announcements' ? 'hidden' : ''}`}>
                     <h2 className="text-xl font-bold text-slate-900">Announcements</h2>
                     <p className="mb-4 mt-1 text-sm text-slate-600">Publish updates for the UMP-CFERI portal.</p>
                     {announcementMessage && <p role="status" className="mb-3 text-sm text-emerald-700">{announcementMessage}</p>}
@@ -403,8 +418,9 @@ export default function AdminDashboard() {
                             </div>}
                 </section>
 
-                <section id="centre-events" className="scroll-mt-24">
-                <div className="grid gap-6 md:grid-cols-2">
+                <section id="centre-events" className={`scroll-mt-24 ${activeSection !== 'centre-events' ? 'hidden' : ''}`}>
+                {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+                <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                     <div>
                         <div className="mb-4 flex items-center justify-between gap-3">
                             <h2 className="text-xl font-bold text-slate-900">Events</h2>

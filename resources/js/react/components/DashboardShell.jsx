@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { logout as apiLogout, clearAuth } from '../api';
 import { BRAND } from '../brand';
 
@@ -31,6 +31,7 @@ const ROLE_SIDEBAR_ITEMS = {
 
 function Sidebar({ role, isOpen, onClose }) {
     const items = ROLE_SIDEBAR_ITEMS[role] || (role === 'super_admin' ? ROLE_SIDEBAR_ITEMS.admin : ROLE_SIDEBAR_ITEMS.student);
+    const location = useLocation();
     const navigate = useNavigate();
 
     const handleNav = () => {
@@ -63,21 +64,23 @@ function Sidebar({ role, isOpen, onClose }) {
                         {items.map((item) => {
                             const isHash = item.to.includes('#');
                             if (isHash) {
+                                const [path, section] = item.to.split('#');
+                                const isActive = location.pathname === path && location.hash === `#${section}`;
                                 return (
                                     <a
                                         key={item.label}
                                         href={item.to}
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            const [path, hash] = item.to.split('#');
                                             navigate(item.to);
-                                            window.setTimeout(() => {
-                                                const target = document.getElementById(hash);
-                                                target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                            }, path === window.location.pathname ? 0 : 100);
                                             handleNav();
                                         }}
-                                        className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[var(--tma-text)] transition-all duration-200 hover:bg-[var(--tma-surface)] hover:text-[var(--tma-pink)]"
+                                        aria-current={isActive ? 'page' : undefined}
+                                        className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                                            isActive
+                                                ? 'bg-[var(--tma-pink)]/10 text-[var(--tma-pink)] shadow-sm'
+                                                : 'text-[var(--tma-text)] hover:bg-[var(--tma-surface)] hover:text-[var(--tma-pink)]'
+                                        }`}
                                     >
                                         <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon} /></svg>
                                         {item.label}
@@ -88,6 +91,7 @@ function Sidebar({ role, isOpen, onClose }) {
                                 <NavLink
                                     key={item.label}
                                     to={item.to}
+                                    end={item.to === '/admin' || item.to === '/student' || item.to === '/mentor'}
                                     onClick={handleNav}
                                     className={({ isActive }) =>
                                         `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
@@ -107,7 +111,7 @@ function Sidebar({ role, isOpen, onClose }) {
                     <div className="border-t border-[var(--tma-border)] p-4">
                         <button
                             type="button"
-                            onClick={() => { onClose(); apiLogout().catch(() => {}); clearAuth(); window.location.href = '/login'; }}
+                            onClick={() => { onClose(); apiLogout().catch(() => {}); clearAuth(); window.location.href = role === 'admin' || role === 'super_admin' ? '/' : '/login'; }}
                             className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                         >
                             <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -143,7 +147,7 @@ export default function DashboardShell({ user, children }) {
     const handleLogout = () => {
         apiLogout().catch(() => {});
         clearAuth();
-        window.location.href = '/login';
+        window.location.href = role === 'admin' || role === 'super_admin' ? '/' : '/login';
     };
 
     return (
