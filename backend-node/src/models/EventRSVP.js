@@ -4,7 +4,7 @@ const eventRsvpSchema = new mongoose.Schema(
   {
     event_id: { type: mongoose.Schema.Types.ObjectId, ref: 'CentreEvent', required: true },
     full_name: { type: String, required: true, trim: true },
-    student_number: { type: String, required: true, trim: true },
+    student_number: { type: String, default: null, trim: true },
     email: { type: String, required: true, trim: true, lowercase: true },
     phone: { type: String, default: null, trim: true },
     faculty_programme: { type: String, default: null, trim: true }

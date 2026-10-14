@@ -6,7 +6,6 @@ const FALLBACK_IMAGE = '/images/panel-discussion.jpg';
 export default function EventRSVPModal({ event, onClose }) {
     const [form, setForm] = useState({
         full_name: '',
-        student_number: '',
         email: '',
         phone: '',
         faculty_programme: ''
@@ -27,8 +26,8 @@ export default function EventRSVPModal({ event, onClose }) {
         setForm((prev) => ({ ...prev, [field]: event.target.value }));
     };
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
+    const handleSubmit = async (submitEvent) => {
+        submitEvent.preventDefault();
         setSubmitting(true);
         setError('');
         setSuccess('');
@@ -36,7 +35,7 @@ export default function EventRSVPModal({ event, onClose }) {
         try {
             await createPublicEventRsvp(event.id, form);
             setSuccess('Your RSVP has been confirmed. A confirmation email will be sent to you shortly.');
-            setForm({ full_name: '', student_number: '', email: '', phone: '', faculty_programme: '' });
+            setForm({ full_name: '', email: '', phone: '', faculty_programme: '' });
         } catch (err) {
             setError(err?.response?.data?.message || 'Unable to submit RSVP. Please try again later.');
         } finally {
@@ -96,26 +95,16 @@ export default function EventRSVPModal({ event, onClose }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700">Student Number</label>
-                            <input
-                                type="text"
-                                required
-                                value={form.student_number}
-                                onChange={handleChange('student_number')}
-                                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none"
-                                placeholder="Enter your student number"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">UMP Email</label>
+                            <label className="block text-sm font-medium text-slate-700">Email</label>
                             <input
                                 type="email"
                                 required
                                 value={form.email}
                                 onChange={handleChange('email')}
                                 className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none"
-                                placeholder="your.name@ump.ac.za"
+                                placeholder="you@example.com"
                             />
+                            <p className="mt-1 text-xs text-slate-500">Enter an email address where we can send your RSVP confirmation.</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Phone Number</label>

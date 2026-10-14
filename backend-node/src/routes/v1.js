@@ -36,6 +36,7 @@ import {
 } from '../services/mail.js';
 import { ensureUpcomingSlotsForMentor, isStandardSlot, isValidAvailabilityWindow, standardSlotsWithinAvailability } from '../services/slots.js';
 import { writeAudit } from '../utils/audit.js';
+import { removeStoredEventImage, storeEventImage } from '../utils/event-image.js';
 import { signToken } from '../utils/auth.js';
 import { failure, success } from '../utils/response.js';
 
@@ -388,7 +389,7 @@ router.post('/public/appointments', async (req, res) => {
 
   const domain = String(email.split('@')[1] || '').trim().toLowerCase();
   if (!domain || domain !== configuredDomain) {
-    return failure(res, 'Validation failed', null, 422);
+    return failure(res, 'Please use your official UMP student email address.', null, 422);
   }
 
   const mentor = await User.findOne({ _id: mentor_id, role: 'mentor', mentor_verified_at: { $ne: null } });
@@ -1040,18 +1041,44 @@ router.post('/admin/centre-events', authRequired, requireRole('admin', 'super_ad
     return failure(res, 'Validation failed', null, 422);
   }
 
-  const event = await CentreEvent.create({
-    title: String(event_title),
-    event_date: String(event_date),
-    event_time: String(event_time),
-    venue: String(event_venue),
-    category: String(event_category),
-    description: description !== undefined ? String(description) : null,
-    end_time: end_time !== undefined ? String(end_time) : null,
-    capacity: capacity !== undefined ? Number(capacity) || null : null,
-    registration_deadline: registration_deadline !== undefined ? String(registration_deadline) : null,
-    image: image !== undefined ? String(image) : null
-  });
+  let storedImage = null;
+  if (typeof image === 'string' && image.startsWith('data:')) {
+    try {
+      storedImage = await storeEventImage(image);
+    } catch (error) {
+      console.error('Centre event image upload failed:', error);
+      return failure(res, 'Unable to save the event image. Please try again.', null, 500);
+    }
+    if (!storedImage) {
+      return failure(res, 'Upload a valid PNG, JPEG, or WebP event image under 600 KB.', null, 422);
+    }
+  }
+
+  let event;
+  try {
+    event = await CentreEvent.create({
+      title: String(event_title),
+      event_date: String(event_date),
+      event_time: String(event_time),
+      venue: String(event_venue),
+      category: String(event_category),
+      description: description !== undefined ? String(description) : null,
+      end_time: end_time !== undefined ? String(end_time) : null,
+      capacity: capacity !== undefined ? Number(capacity) || null : null,
+      registration_deadline: registration_deadline !== undefined ? String(registration_deadline) : null,
+      image: storedImage || (image !== undefined ? String(image) : null)
+    });
+  } catch (error) {
+    if (storedImage) {
+      try {
+        await removeStoredEventImage(storedImage);
+      } catch (cleanupError) {
+        console.error('Failed to remove event image after event creation failed:', cleanupError);
+      }
+    }
+    console.error('Centre event creation failed:', error);
+    return failure(res, 'Unable to create the event. Please try again.', null, 500);
+  }
 
   await writeAudit(req, req.user._id, 'centre_event.created', 'CentreEvent', event._id);
   return success(res, 'Centre event created', event.toJSON(), 201);
@@ -1103,10 +1130,9 @@ router.get('/admin/centre-events/:id/rsvps/export', authRequired, requireRole('a
 
   const rsvps = await EventRSVP.find({ event_id: id }).sort({ createdAt: -1 });
 
-  const headers = ['Full Name', 'Student Number', 'UMP Email', 'Phone Number', 'Faculty / Programme', 'Event', 'Event Date', 'Event Time', 'Venue', 'RSVP Date/Time'];
+  const headers = ['Full Name', 'UMP Email', 'Phone Number', 'Faculty / Programme', 'Event', 'Event Date', 'Event Time', 'Venue', 'RSVP Date/Time'];
   const rows = rsvps.map((rsvp) => [
     rsvp.full_name,
-    rsvp.student_number,
     rsvp.email,
     rsvp.phone || '',
     rsvp.faculty_programme || '',
@@ -1167,31 +1193,14 @@ router.post('/public/events/:id/rsvp', async (req, res) => {
   const email = String(raw.email || '').trim().toLowerCase();
   const phone = String(raw.phone || '').trim();
   const faculty_programme = String(raw.faculty_programme || '').trim();
-
   if (!full_name) return failure(res, 'Validation failed', null, 422);
-  if (!student_number || student_number.length < 3) return failure(res, 'Validation failed', null, 422);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) return failure(res, 'Validation failed', null, 422);
 
-  const configuredDomain = String(process.env.UMP_STUDENT_EMAIL_DOMAIN || '').trim().toLowerCase();
-  if (!configuredDomain) {
-    console.error('Public RSVP blocked: UMP_STUDENT_EMAIL_DOMAIN configuration is missing.');
-    await writeAudit(req, null, 'public_event_rsvp.email_domain_missing', 'EventRSVP', null, { event_id: id, email });
-    return failure(res, 'Student email verification is temporarily unavailable. Please try again later.', null, 503);
-  }
-
-  const domain = String(email.split('@')[1] || '').trim().toLowerCase();
-  if (!domain || domain !== configuredDomain) {
-    return failure(res, 'Validation failed', null, 422);
-  }
-
   const existing = await EventRSVP.findOne({
     event_id: id,
-    $or: [
-      { student_number },
-      { email }
-    ]
+    $or: student_number ? [{ student_number }, { email }] : [{ email }]
   });
 
   if (existing) {
@@ -1203,7 +1212,7 @@ router.post('/public/events/:id/rsvp', async (req, res) => {
     rsvp = await EventRSVP.create({
       event_id: id,
       full_name,
-      student_number,
+      student_number: student_number || null,
       email,
       phone: phone || null,
       faculty_programme: faculty_programme || null
@@ -1226,7 +1235,7 @@ router.post('/public/events/:id/rsvp', async (req, res) => {
     id: String(rsvp._id),
     event_id: String(event._id),
     full_name,
-    student_number,
+    student_number: student_number || null,
     email,
     phone,
     faculty_programme

@@ -37,6 +37,51 @@ const EMPTY_ANNOUNCEMENT_FORM = {
     published_on: new Date().toISOString().slice(0, 10),
 };
 
+const MAX_EVENT_IMAGE_SIZE = 600 * 1024;
+const MAX_EVENT_IMAGE_INPUT_SIZE = 20 * 1024 * 1024;
+
+function readBlobAsDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Unable to read the selected image.'));
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function compressEventImage(file) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        throw new Error('Choose a PNG, JPEG, or WebP image.');
+    }
+    if (file.size > MAX_EVENT_IMAGE_INPUT_SIZE) {
+        throw new Error('Choose an image smaller than 20 MB.');
+    }
+
+    const bitmap = await createImageBitmap(file);
+    try {
+        let scale = Math.min(1, 1600 / bitmap.width, 1600 / bitmap.height);
+        for (let resizeAttempt = 0; resizeAttempt < 5; resizeAttempt += 1) {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+            canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Image processing is not supported by this browser.');
+            context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+            for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
+                if (!blob) throw new Error('Unable to process the selected image.');
+                if (blob.size <= MAX_EVENT_IMAGE_SIZE) return await readBlobAsDataUrl(blob);
+            }
+            scale *= 0.8;
+        }
+    } finally {
+        bitmap.close();
+    }
+
+    throw new Error('This image could not be compressed below 600 KB. Choose a smaller image.');
+}
+
 export default function AdminDashboard() {
     const { hash } = useLocation();
     const requestedSection = decodeURIComponent(hash.slice(1));
@@ -75,6 +120,8 @@ export default function AdminDashboard() {
     const [eventForm, setEventForm] = useState(EMPTY_EVENT_FORM);
     const [eventFormOpen, setEventFormOpen] = useState(false);
     const [eventSubmitting, setEventSubmitting] = useState(false);
+    const [eventImageProcessing, setEventImageProcessing] = useState(false);
+    const [eventImageError, setEventImageError] = useState('');
     const [eventFormError, setEventFormError] = useState('');
     const [eventFormSuccess, setEventFormSuccess] = useState('');
     const [selectedEventId, setSelectedEventId] = useState(null);
@@ -135,6 +182,24 @@ export default function AdminDashboard() {
     const handleEventFieldChange = (event) => {
         const { name, value } = event.target;
         setEventForm((current) => ({ ...current, [name]: value }));
+    };
+
+    const handleEventImageChange = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setEventForm((current) => ({ ...current, image: '' }));
+        setEventImageError('');
+        setEventImageProcessing(true);
+        try {
+            const image = await compressEventImage(file);
+            setEventForm((current) => ({ ...current, image }));
+        } catch (err) {
+            setEventImageError(err.message || 'Unable to process the selected image.');
+        } finally {
+            setEventImageProcessing(false);
+            event.target.value = '';
+        }
     };
 
     const handleVerifyMentor = async (mentorId) => {
@@ -483,11 +548,36 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                                 <div>
-                                    <label htmlFor="event-image" className="mb-1 block text-sm font-medium text-slate-700">Image URL or public image path</label>
-                                    <input id="event-image" type="text" name="image" value={eventForm.image} onChange={handleEventFieldChange} maxLength={500} placeholder="/images/event-photo.jpg" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                                    <label htmlFor="event-image" className="mb-1 block text-sm font-medium text-slate-700">Event picture</label>
+                                    <input
+                                        id="event-image"
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        onChange={handleEventImageChange}
+                                        disabled={eventImageProcessing}
+                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-medium"
+                                    />
+                                    <p className="mt-1 text-xs text-slate-500">PNG, JPEG, or WebP. Images are resized and compressed before upload.</p>
+                                    {eventImageProcessing && <p role="status" className="mt-2 text-sm text-slate-600">Processing image...</p>}
+                                    {eventImageError && <p role="alert" className="mt-2 text-sm text-red-700">{eventImageError}</p>}
+                                    {eventForm.image && (
+                                        <div className="mt-3 flex flex-wrap items-start gap-3">
+                                            <img src={eventForm.image} alt="Event image preview" className="max-h-40 max-w-full rounded-lg border border-slate-200 object-contain" />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEventForm((current) => ({ ...current, image: '' }));
+                                                    setEventImageError('');
+                                                }}
+                                                className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                            >
+                                                Remove picture
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                <button type="submit" disabled={eventSubmitting} className="justify-self-start rounded-full bg-[#09203F] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0b1f45] disabled:cursor-not-allowed disabled:opacity-60">
-                                    {eventSubmitting ? 'Creating event...' : 'Create Event'}
+                                <button type="submit" disabled={eventSubmitting || eventImageProcessing} className="justify-self-start rounded-full bg-[#09203F] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0b1f45] disabled:cursor-not-allowed disabled:opacity-60">
+                                    {eventImageProcessing ? 'Processing image...' : eventSubmitting ? 'Creating event...' : 'Create Event'}
                                 </button>
                             </form>
                         )}
@@ -562,7 +652,6 @@ export default function AdminDashboard() {
                                             <thead>
                                                 <tr className="border-b border-slate-200">
                                                     <th className="pb-2 font-semibold text-slate-700">Name</th>
-                                                    <th className="pb-2 font-semibold text-slate-700">Student Number</th>
                                                     <th className="pb-2 font-semibold text-slate-700">Email</th>
                                                     <th className="pb-2 font-semibold text-slate-700">Phone</th>
                                                     <th className="pb-2 font-semibold text-slate-700">Faculty</th>
@@ -573,7 +662,6 @@ export default function AdminDashboard() {
                                                 {rsvpData.rsvps.map((rsvp) => (
                                                     <tr key={rsvp.id} className="border-b border-slate-100">
                                                         <td className="py-2 text-slate-900">{rsvp.full_name}</td>
-                                                        <td className="py-2 text-slate-600">{rsvp.student_number}</td>
                                                         <td className="py-2 text-slate-600">{rsvp.email}</td>
                                                         <td className="py-2 text-slate-600">{rsvp.phone || '-'}</td>
                                                         <td className="py-2 text-slate-600">{rsvp.faculty_programme || '-'}</td>
